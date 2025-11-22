@@ -806,8 +806,11 @@ class pdf_sponge2 extends ModelePDFFactures
 						$nexY = max($pdf->GetY(), $nexY);
 					}
 
+					// Check if this is the section title service (ID 361 - Libelle_Cde)
+					$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
 					// Unit price before discount
-					if ($this->getColumnStatus('subprice')) {
+					if ($this->getColumnStatus('subprice') && !$isSectionTitle) {
 						$up_excl_tax = pdf_getlineupexcltax($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'subprice', $up_excl_tax);
 						$nexY = max($pdf->GetY(), $nexY);
@@ -815,7 +818,7 @@ class pdf_sponge2 extends ModelePDFFactures
 
 					// Quantity
 					// Enough for 6 chars
-					if ($this->getColumnStatus('qty')) {
+					if ($this->getColumnStatus('qty') && !$isSectionTitle) {
 						$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'qty', $qty);
 						$nexY = max($pdf->GetY(), $nexY);
@@ -829,7 +832,7 @@ class pdf_sponge2 extends ModelePDFFactures
 					}
 
 					// Unit
-					if ($this->getColumnStatus('unit')) {
+					if ($this->getColumnStatus('unit') && !$isSectionTitle) {
 						$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'unit', $unit);
 						$nexY = max($pdf->GetY(), $nexY);
@@ -843,7 +846,7 @@ class pdf_sponge2 extends ModelePDFFactures
 					}
 
 					// Total excl tax line (HT)
-					if ($this->getColumnStatus('totalexcltax')) {
+					if ($this->getColumnStatus('totalexcltax') && !$isSectionTitle) {
 						$total_excl_tax = pdf_getlinetotalexcltax($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'totalexcltax', $total_excl_tax);
 						$nexY = max($pdf->GetY(), $nexY);
