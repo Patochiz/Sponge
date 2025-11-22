@@ -2356,9 +2356,9 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 
 		$top_shift = 0;
 		$shipp_shift = 0;
-		// Show list of linked objects
+		// Show list of linked objects (using custom condensed format)
 		$current_y = $pdf->getY();
-		$posy = pdf_writeLinkedObjects($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
+		$posy = $this->writeLinkedObjectsCustom($pdf, $object, $outputlangs, $posx, $posy, $w, $default_font_size);
 		if ($current_y < $pdf->getY()) {
 			$top_shift = $pdf->getY() - $current_y;
 		}
@@ -2529,6 +2529,95 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	{
 		$showdetails = getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS', 0);
 		return pdf_pagefoot($pdf, $outputlangs, 'INVOICE_FREE_TEXT', $this->emetteur, $heightforqrinvoice + $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object, $showdetails, $hidefreetext, $this->page_largeur, $this->watermark);
+	}
+
+	/**
+	 * Custom function to write linked objects in condensed format
+	 *
+	 * @param	TCPDF		$pdf			PDF object
+	 * @param	Facture		$object			Object
+	 * @param	Translate	$outputlangs	Output language
+	 * @param	int			$posx			X position
+	 * @param	int			$posy			Y position
+	 * @param	int			$w				Width
+	 * @param	int			$default_font_size	Font size
+	 * @return	int							New Y position
+	 */
+	protected function writeLinkedObjectsCustom(&$pdf, $object, $outputlangs, $posx, $posy, $w, $default_font_size)
+	{
+		$linkedobjects = pdf_getLinkedObjects($object, $outputlangs);
+		if (!empty($linkedobjects)) {
+			foreach ($linkedobjects as $linkedobject) {
+				$reftoshow = $linkedobject["ref_title"] . ' :';
+				$posy += 3;
+				$pdf->SetXY($posx, $posy);
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$pdf->MultiCell($w, 3, $reftoshow, 0, 'R');
+
+				$posy = $pdf->getY();
+
+				// Display each linked object with condensed format: "ref du date"
+				foreach ($linkedobject["refs"] as $refobj) {
+					$pdf->SetXY($posx, $posy);
+					$pdf->SetFont('', '', $default_font_size - 2);
+
+					// Format: "25_11_002 du 16/11/2025" instead of separate lines
+					$ref_with_date = $refobj;
+					if (!empty($linkedobject["dates"])) {
+						$dates_array = $linkedobject["dates"];
+						$key = array_search($refobj, $linkedobject["refs"]);
+						if ($key !== false && isset($dates_array[$key])) {
+							$ref_with_date = $refobj . ' du ' . dol_print_date($dates_array[$key], 'day', false, $outputlangs);
+						}
+					}
+
+					$pdf->MultiCell($w, 3, $ref_with_date, 0, 'R');
+					$posy = $pdf->getY();
+				}
+			}
+		}
+		return $posy;
+	}
+
+	/**
+	 * Surcharge de la méthode pour afficher la description de colonne
+	 * Permet de n'ajouter les références de commandes que pour le service Libelle_Cde (ID 361)
+	 *
+	 * @param	TCPDF		$pdf			PDF object
+	 * @param	float		$curY			Current Y position
+	 * @param	string		$colKey			Column key
+	 * @param	Facture		$object			Object
+	 * @param	int			$i				Line index
+	 * @param	Translate	$outputlangs	Output language
+	 * @param	int			$hideref		Hide reference
+	 * @param	int			$hidedesc		Hide description
+	 * @return	void
+	 */
+	public function printColDescContent($pdf, &$curY, $colKey, $object, $i, $outputlangs, $hideref = 0, $hidedesc = 0)
+	{
+		global $hookmanager;
+
+		// Check if this is the section title service (ID 361 - Libelle_Cde)
+		$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
+		// Temporarily disable linked object display in descriptions for non-section titles
+		$tmpShowLinkedObjectRef = null;
+		if (!$isSectionTitle && !empty($object->lines[$i])) {
+			// Save original value
+			if (isset($object->lines[$i]->show_ref_origin)) {
+				$tmpShowLinkedObjectRef = $object->lines[$i]->show_ref_origin;
+			}
+			// Disable showing linked object references
+			$object->lines[$i]->show_ref_origin = false;
+		}
+
+		// Call parent method
+		parent::printColDescContent($pdf, $curY, $colKey, $object, $i, $outputlangs, $hideref, $hidedesc);
+
+		// Restore original value
+		if (!$isSectionTitle && $tmpShowLinkedObjectRef !== null && !empty($object->lines[$i])) {
+			$object->lines[$i]->show_ref_origin = $tmpShowLinkedObjectRef;
+		}
 	}
 
 	/**
