@@ -2577,6 +2577,10 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	protected function writeLinkedObjectsCondensed(&$pdf, $object, $outputlangs, $posx, $posy, $w, $h, $align, $default_font_size)
 	{
 		$linkedobjects = pdf_getLinkedObjects($object, $outputlangs);
+
+		// DEBUG: Écrire dans un fichier pour voir la structure des données
+		file_put_contents('/tmp/debug_linked_objects.txt', print_r($linkedobjects, true));
+
 		if (!empty($linkedobjects)) {
 			foreach ($linkedobjects as $linkedobject) {
 				$reftoshow = $linkedobject["ref_title"].' : '.$linkedobject["ref_value"];
