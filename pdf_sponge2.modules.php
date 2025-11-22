@@ -756,8 +756,8 @@ class pdf_sponge2 extends ModelePDFFactures
 							$tmpDescOrigin = $object->lines[$i]->desc;
 
 							if ($isSectionTitle) {
-								// For section titles (ID 361), replace "Commande" with "AR"
-								$object->lines[$i]->desc = preg_replace('/\bCommande\s+/', 'AR ', $object->lines[$i]->desc);
+								// For section titles (ID 361), replace "Commande XXX - date" with "AR XXX - date"
+								$object->lines[$i]->desc = preg_replace('/(\n?)Commande(\s+[^\s]+\s+-\s+[^\n]+)/', '$1AR$2', $object->lines[$i]->desc);
 							} else {
 								// For other lines, remove the command reference completely
 								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
@@ -782,8 +782,8 @@ class pdf_sponge2 extends ModelePDFFactures
 							// Re-apply description filter before second attempt
 							if ($tmpDescOrigin !== '') {
 								if ($isSectionTitle) {
-									// For section titles (ID 361), replace "Commande" with "AR"
-									$object->lines[$i]->desc = preg_replace('/\bCommande\s+/', 'AR ', $tmpDescOrigin);
+									// For section titles (ID 361), replace "Commande XXX - date" with "AR XXX - date"
+									$object->lines[$i]->desc = preg_replace('/(\n?)Commande(\s+[^\s]+\s+-\s+[^\n]+)/', '$1AR$2', $tmpDescOrigin);
 								} else {
 									// For other lines, remove the command reference completely
 									$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
