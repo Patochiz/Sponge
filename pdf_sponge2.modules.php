@@ -2572,6 +2572,11 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	 */
 	protected function writeLinkedObjectsCustom(&$pdf, $object, $outputlangs, $posx, $posy, $w, $default_font_size)
 	{
+		// Essayer de charger les objets liés si ce n'est pas déjà fait
+		if (method_exists($object, 'fetchObjectLinked') && empty($object->linkedObjectsIds)) {
+			$object->fetchObjectLinked();
+		}
+
 		// Récupérer les commandes liées
 		if (!empty($object->linkedObjectsIds['commande'])) {
 			require_once DOL_DOCUMENT_ROOT.'/commande/class/commande.class.php';
@@ -2598,6 +2603,9 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 					$posy = $pdf->getY();
 				}
 			}
+		} else {
+			// Fallback: utiliser la fonction standard de Dolibarr si aucune commande trouvée
+			$posy = pdf_writeLinkedObjects($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
 		}
 		return $posy;
 	}
