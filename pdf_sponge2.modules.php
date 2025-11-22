@@ -2578,30 +2578,30 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	{
 		$linkedobjects = pdf_getLinkedObjects($object, $outputlangs);
 		if (!empty($linkedobjects)) {
+			// Compter le nombre total d'objets liés pour afficher le titre une seule fois
+			$firstItem = true;
+
 			foreach ($linkedobjects as $linkedobject) {
-				// Afficher le titre (ex: "Réf. commande :")
-				$posy += 3;
-				$pdf->SetXY($posx, $posy);
-				$pdf->SetFont('', '', $default_font_size - 2);
-				$pdf->MultiCell($w, $h, $linkedobject["ref_title"].' :', '', $align);
-				$posy = $pdf->getY();
-
-				// Afficher chaque référence sur une ligne avec format condensé
-				$refs = explode('<br>', $linkedobject["ref_value"]);
-				$dates = !empty($linkedobject["date_value"]) ? explode('<br>', $linkedobject["date_value"]) : array();
-
-				foreach ($refs as $index => $ref) {
-					$reftoshow = $ref;
-					// Ajouter la date sur la même ligne : "25_11_002 du 16/11/2025"
-					if (!empty($dates[$index])) {
-						$reftoshow .= ' du ' . $dates[$index];
-					}
-
+				// Afficher le titre une seule fois
+				if ($firstItem) {
+					$posy += 3;
 					$pdf->SetXY($posx, $posy);
 					$pdf->SetFont('', '', $default_font_size - 2);
-					$pdf->MultiCell($w, $h, $reftoshow, '', $align);
+					$pdf->MultiCell($w, $h, $linkedobject["ref_title"].' :', '', $align);
 					$posy = $pdf->getY();
+					$firstItem = false;
 				}
+
+				// Format condensé : "25_11_002 du 16/11/2025"
+				$reftoshow = $linkedobject["ref_value"];
+				if (!empty($linkedobject["date_value"])) {
+					$reftoshow .= ' du ' . $linkedobject["date_value"];
+				}
+
+				$pdf->SetXY($posx, $posy);
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$pdf->MultiCell($w, $h, $reftoshow, '', $align);
+				$posy = $pdf->getY();
 			}
 		}
 
