@@ -2385,7 +2385,7 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 		$shipp_shift = 0;
 		// Show list of linked objects (using custom condensed format)
 		$current_y = $pdf->getY();
-		$posy = $this->writeLinkedObjects($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
+		$posy = $this->writeLinkedObjectsCondensed($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
 		if ($current_y < $pdf->getY()) {
 			$top_shift = $pdf->getY() - $current_y;
 		}
@@ -2559,7 +2559,7 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	}
 
 	/**
-	 * Surcharge de pdf_writeLinkedObjects pour format condensé
+	 * Version personnalisée de pdf_writeLinkedObjects pour format condensé
 	 * Au lieu de "Réf. commande : XXX / Date : XX/XX/XXXX"
 	 * Affiche "Réf. commande :\nXXX du XX/XX/XXXX"
 	 *
@@ -2574,34 +2574,22 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	 * @param	int			$default_font_size	Font size
 	 * @return	int								New Y position
 	 */
-	protected function writeLinkedObjects(&$pdf, $object, $outputlangs, $posx, $posy, $w, $h, $align, $default_font_size)
+	protected function writeLinkedObjectsCondensed(&$pdf, $object, $outputlangs, $posx, $posy, $w, $h, $align, $default_font_size)
 	{
 		$linkedobjects = pdf_getLinkedObjects($object, $outputlangs);
 		if (!empty($linkedobjects)) {
-			// Compter le nombre total d'objets liés pour afficher le titre une seule fois
-			$firstItem = true;
-
 			foreach ($linkedobjects as $linkedobject) {
-				// Afficher le titre une seule fois
-				if ($firstItem) {
-					$posy += 3;
-					$pdf->SetXY($posx, $posy);
-					$pdf->SetFont('', '', $default_font_size - 2);
-					$pdf->MultiCell($w, $h, $linkedobject["ref_title"].' :', '', $align);
-					$posy = $pdf->getY();
-					$firstItem = false;
-				}
-
-				// Format condensé : "25_11_002 du 16/11/2025"
-				$reftoshow = $linkedobject["ref_value"];
+				$reftoshow = $linkedobject["ref_title"].' : '.$linkedobject["ref_value"];
 				if (!empty($linkedobject["date_value"])) {
-					$reftoshow .= ' du ' . $linkedobject["date_value"];
+					// Remplacer " / " par " du "
+					$reftoshow .= ' / '.$linkedobject["date_value"];
+					$reftoshow = str_replace(' / ', ' du ', $reftoshow);
 				}
 
+				$posy += 3;
 				$pdf->SetXY($posx, $posy);
 				$pdf->SetFont('', '', $default_font_size - 2);
 				$pdf->MultiCell($w, $h, $reftoshow, '', $align);
-				$posy = $pdf->getY();
 			}
 		}
 
