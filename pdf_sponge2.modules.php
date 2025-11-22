@@ -332,7 +332,7 @@ class pdf_sponge2 extends ModelePDFFactures
 				$default_font_size = pdf_getPDFFontSize($outputlangs); // Must be after pdf_getInstance
 				$pdf->SetAutoPageBreak(1, 0);
 
-				$this->heightforinfotot = 30 + (4 * $nbpayments); // Height reserved to output the info and total part and payment part (reduced from 50 to avoid empty pages)
+				$this->heightforinfotot = 25 + (4 * $nbpayments); // Height reserved to output the info and total part and payment part (reduced from 50 to avoid empty pages)
 				$this->heightforfreetext = (isset($conf->global->MAIN_PDF_FREETEXT_HEIGHT) ? $conf->global->MAIN_PDF_FREETEXT_HEIGHT : 5); // Height reserved to output the free text on last page
 				$this->heightforfooter = $this->marge_basse + (!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 12 : 22); // Height reserved to output the footer (value include bottom margin)
 
