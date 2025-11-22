@@ -746,15 +746,37 @@ class pdf_sponge2 extends ModelePDFFactures
 
 					// Description of product line
 					if ($this->getColumnStatus('desc')) {
+						// Check if this is the section title service (ID 361 - Libelle_Cde)
+						$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
+						// Temporarily disable linked object display in descriptions for non-section titles
+						$tmpDescOrigin = '';
+						if (!$isSectionTitle && !empty($object->lines[$i]->desc)) {
+							// Save original description
+							$tmpDescOrigin = $object->lines[$i]->desc;
+							// Remove "Commande XXX - date" pattern from description
+							$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
+						}
+
 						$pdf->startTransaction();
 
 						$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 						$pageposafter = $pdf->getPage();
 
+						// Restore original description after display
+						if (!$isSectionTitle && $tmpDescOrigin !== '') {
+							$object->lines[$i]->desc = $tmpDescOrigin;
+						}
+
 						if ($pageposafter > $pageposbefore) {	// There is a pagebreak
 							$pdf->rollbackTransaction(true);
 							$pageposafter = $pageposbefore;
 							$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
+
+							// Re-apply description filter before second attempt
+							if (!$isSectionTitle && $tmpDescOrigin !== '') {
+								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
+							}
 
 							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 
@@ -782,6 +804,11 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->commitTransaction();
 						}
 						$posYAfterDescription = $pdf->GetY();
+
+						// Final restore of original description
+						if (!$isSectionTitle && $tmpDescOrigin !== '') {
+							$object->lines[$i]->desc = $tmpDescOrigin;
+						}
 					}
 
 					$nexY = max($pdf->GetY(), $posYAfterImage, $posYAfterDescription);
@@ -2545,30 +2572,26 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	 */
 	protected function writeLinkedObjectsCustom(&$pdf, $object, $outputlangs, $posx, $posy, $w, $default_font_size)
 	{
-		$linkedobjects = pdf_getLinkedObjects($object, $outputlangs);
-		if (!empty($linkedobjects)) {
-			foreach ($linkedobjects as $linkedobject) {
-				$reftoshow = $linkedobject["ref_title"] . ' :';
-				$posy += 3;
-				$pdf->SetXY($posx, $posy);
-				$pdf->SetFont('', '', $default_font_size - 2);
-				$pdf->MultiCell($w, 3, $reftoshow, 0, 'R');
+		// Récupérer les commandes liées
+		if (!empty($object->linkedObjectsIds['commande'])) {
+			require_once DOL_DOCUMENT_ROOT.'/commande/class/commande.class.php';
 
-				$posy = $pdf->getY();
+			$posy += 3;
+			$pdf->SetXY($posx, $posy);
+			$pdf->SetFont('', '', $default_font_size - 2);
+			$pdf->MultiCell($w, 3, $outputlangs->transnoentities('RefOrder') . ' :', 0, 'R');
+			$posy = $pdf->getY();
 
-				// Display each linked object with condensed format: "ref du date"
-				foreach ($linkedobject["refs"] as $refobj) {
+			foreach ($object->linkedObjectsIds['commande'] as $commandeid) {
+				$commande = new Commande($this->db);
+				if ($commande->fetch($commandeid) > 0) {
 					$pdf->SetXY($posx, $posy);
 					$pdf->SetFont('', '', $default_font_size - 2);
 
-					// Format: "25_11_002 du 16/11/2025" instead of separate lines
-					$ref_with_date = $refobj;
-					if (!empty($linkedobject["dates"])) {
-						$dates_array = $linkedobject["dates"];
-						$key = array_search($refobj, $linkedobject["refs"]);
-						if ($key !== false && isset($dates_array[$key])) {
-							$ref_with_date = $refobj . ' du ' . dol_print_date($dates_array[$key], 'day', false, $outputlangs);
-						}
+					// Format: "25_11_002 du 16/11/2025"
+					$ref_with_date = $commande->ref;
+					if (!empty($commande->date)) {
+						$ref_with_date .= ' du ' . dol_print_date($commande->date, 'day', false, $outputlangs);
 					}
 
 					$pdf->MultiCell($w, 3, $ref_with_date, 0, 'R');
@@ -2577,47 +2600,6 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 			}
 		}
 		return $posy;
-	}
-
-	/**
-	 * Surcharge de la méthode pour afficher la description de colonne
-	 * Permet de n'ajouter les références de commandes que pour le service Libelle_Cde (ID 361)
-	 *
-	 * @param	TCPDF		$pdf			PDF object
-	 * @param	float		$curY			Current Y position
-	 * @param	string		$colKey			Column key
-	 * @param	Facture		$object			Object
-	 * @param	int			$i				Line index
-	 * @param	Translate	$outputlangs	Output language
-	 * @param	int			$hideref		Hide reference
-	 * @param	int			$hidedesc		Hide description
-	 * @return	void
-	 */
-	public function printColDescContent($pdf, &$curY, $colKey, $object, $i, $outputlangs, $hideref = 0, $hidedesc = 0)
-	{
-		global $hookmanager;
-
-		// Check if this is the section title service (ID 361 - Libelle_Cde)
-		$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
-
-		// Temporarily disable linked object display in descriptions for non-section titles
-		$tmpShowLinkedObjectRef = null;
-		if (!$isSectionTitle && !empty($object->lines[$i])) {
-			// Save original value
-			if (isset($object->lines[$i]->show_ref_origin)) {
-				$tmpShowLinkedObjectRef = $object->lines[$i]->show_ref_origin;
-			}
-			// Disable showing linked object references
-			$object->lines[$i]->show_ref_origin = false;
-		}
-
-		// Call parent method
-		parent::printColDescContent($pdf, $curY, $colKey, $object, $i, $outputlangs, $hideref, $hidedesc);
-
-		// Restore original value
-		if (!$isSectionTitle && $tmpShowLinkedObjectRef !== null && !empty($object->lines[$i])) {
-			$object->lines[$i]->show_ref_origin = $tmpShowLinkedObjectRef;
-		}
 	}
 
 	/**
