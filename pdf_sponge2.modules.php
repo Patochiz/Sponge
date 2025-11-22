@@ -2383,9 +2383,9 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 
 		$top_shift = 0;
 		$shipp_shift = 0;
-		// Show list of linked objects (using custom condensed format)
+		// Show list of linked objects
 		$current_y = $pdf->getY();
-		$posy = $this->writeLinkedObjectsCustom($pdf, $object, $outputlangs, $posx, $posy, $w, $default_font_size);
+		$posy = pdf_writeLinkedObjects($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
 		if ($current_y < $pdf->getY()) {
 			$top_shift = $pdf->getY() - $current_y;
 		}
@@ -2556,58 +2556,6 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	{
 		$showdetails = getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS', 0);
 		return pdf_pagefoot($pdf, $outputlangs, 'INVOICE_FREE_TEXT', $this->emetteur, $heightforqrinvoice + $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object, $showdetails, $hidefreetext, $this->page_largeur, $this->watermark);
-	}
-
-	/**
-	 * Custom function to write linked objects in condensed format
-	 *
-	 * @param	TCPDF		$pdf			PDF object
-	 * @param	Facture		$object			Object
-	 * @param	Translate	$outputlangs	Output language
-	 * @param	int			$posx			X position
-	 * @param	int			$posy			Y position
-	 * @param	int			$w				Width
-	 * @param	int			$default_font_size	Font size
-	 * @return	int							New Y position
-	 */
-	protected function writeLinkedObjectsCustom(&$pdf, $object, $outputlangs, $posx, $posy, $w, $default_font_size)
-	{
-		// Essayer de charger les objets liés si ce n'est pas déjà fait
-		if (method_exists($object, 'fetchObjectLinked') && empty($object->linkedObjectsIds)) {
-			$object->fetchObjectLinked();
-		}
-
-		// Récupérer les commandes liées
-		if (!empty($object->linkedObjectsIds['commande'])) {
-			require_once DOL_DOCUMENT_ROOT.'/commande/class/commande.class.php';
-
-			$posy += 3;
-			$pdf->SetXY($posx, $posy);
-			$pdf->SetFont('', '', $default_font_size - 2);
-			$pdf->MultiCell($w, 3, $outputlangs->transnoentities('RefOrder') . ' :', 0, 'R');
-			$posy = $pdf->getY();
-
-			foreach ($object->linkedObjectsIds['commande'] as $commandeid) {
-				$commande = new Commande($this->db);
-				if ($commande->fetch($commandeid) > 0) {
-					$pdf->SetXY($posx, $posy);
-					$pdf->SetFont('', '', $default_font_size - 2);
-
-					// Format: "25_11_002 du 16/11/2025"
-					$ref_with_date = $commande->ref;
-					if (!empty($commande->date)) {
-						$ref_with_date .= ' du ' . dol_print_date($commande->date, 'day', false, $outputlangs);
-					}
-
-					$pdf->MultiCell($w, 3, $ref_with_date, 0, 'R');
-					$posy = $pdf->getY();
-				}
-			}
-		} else {
-			// Fallback: utiliser la fonction standard de Dolibarr si aucune commande trouvée
-			$posy = pdf_writeLinkedObjects($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
-		}
-		return $posy;
 	}
 
 	/**
