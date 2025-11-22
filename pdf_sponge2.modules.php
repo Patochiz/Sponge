@@ -1339,52 +1339,41 @@ class pdf_sponge2 extends ModelePDFFactures
 				$pdf->SetFont('', '', $default_font_size - 2);
 				$pdf->SetXY($this->marge_gauche, $posy);
 				$titre = $outputlangs->transnoentities("PaymentMode").':';
-				$pdf->MultiCell($posxend - $this->marge_gauche, 5, $titre, 0, 'L');
+				$pdf->MultiCell($posxval - $this->marge_gauche, 5, $titre, 0, 'L');
 
 				$pdf->SetFont('', '', $default_font_size - 2);
 				$pdf->SetXY($posxval, $posy);
 				$lib_mode_reg = $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) != 'PaymentType'.$object->mode_reglement_code ? $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) : $outputlangs->convToOutputCharset($object->mode_reglement);
 
-				//#21654: add account number used for the debit
-if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE') {
-    $pdf->SetFont('', 'B', $default_font_size - 2);
-    $pdf->SetXY($this->marge_gauche, $posy);
-    $titre = $outputlangs->transnoentities("PaymentMode").':';
-    $pdf->MultiCell(80, 5, $titre, 0, 'L');
-
-    $pdf->SetFont('', '', $default_font_size - 2);
-    $pdf->SetXY($posxval, $posy);
-    $lib_mode_reg = $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) != 'PaymentType'.$object->mode_reglement_code ? $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) : $outputlangs->convToOutputCharset($object->mode_reglement);
-    $pdf->MultiCell(80, 5, $lib_mode_reg, 0, 'L');
-
-    $posy = $pdf->GetY() + 2;
-
-    // Affichage du RIB du tiers
-    require_once DOL_DOCUMENT_ROOT.'/societe/class/companybankaccount.class.php';
-    $bac = new CompanyBankAccount($this->db);
-    $result = $bac->fetch(0, '', $object->thirdparty->id);
-    
-    if ($result > 0 && !empty($bac->iban)) {
-        $diffsizetitle = (!getDolGlobalString('PDF_DIFFSIZE_TITLE') ? 3 : $conf->global->PDF_DIFFSIZE_TITLE);
-        
-        // Afficher le titre personnalisé
-        $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->SetFont('', 'B', $default_font_size - $diffsizetitle);
-        $pdf->MultiCell(100, 3, 'Montant prélevé sur compte :', 0, 'L', 0);
-        $posy = $pdf->GetY() + 1;
-        
-        $curx = $this->marge_gauche;
-        $cury = $posy;
-        
-        // Appeler pdf_bank() avec $onlynumber = 1 pour afficher uniquement le tableau
-        $posy = pdf_bank($pdf, $outputlangs, $curx, $cury, $bac, 1, $default_font_size);
-        $posy += 2;
-    }
-}
-
 				$pdf->MultiCell($posxend - $posxval, 5, $lib_mode_reg, 0, 'L');
 
 				$posy = $pdf->GetY();
+
+				//#21654: add account number used for the debit (only for PRE mode)
+				if ($object->mode_reglement_code == 'PRE') {
+					// Affichage du RIB du tiers
+					require_once DOL_DOCUMENT_ROOT.'/societe/class/companybankaccount.class.php';
+					$bac = new CompanyBankAccount($this->db);
+					$result = $bac->fetch(0, '', $object->thirdparty->id);
+
+					if ($result > 0 && !empty($bac->iban)) {
+						$diffsizetitle = (!getDolGlobalString('PDF_DIFFSIZE_TITLE') ? 3 : $conf->global->PDF_DIFFSIZE_TITLE);
+
+						$posy += 2;
+						// Afficher le titre personnalisé
+						$pdf->SetXY($this->marge_gauche, $posy);
+						$pdf->SetFont('', 'B', $default_font_size - $diffsizetitle);
+						$pdf->MultiCell(100, 3, 'Montant prélevé sur compte :', 0, 'L', 0);
+						$posy = $pdf->GetY() + 1;
+
+						$curx = $this->marge_gauche;
+						$cury = $posy;
+
+						// Appeler pdf_bank() avec $onlynumber = 1 pour afficher uniquement le tableau
+						$posy = pdf_bank($pdf, $outputlangs, $curx, $cury, $bac, 1, $default_font_size);
+						$posy += 2;
+					}
+				}
 			}
 
 			// Show if Option VAT debit option is on also if transmitter is french
