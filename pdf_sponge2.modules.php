@@ -2559,6 +2559,42 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	}
 
 	/**
+	 * Version personnalisée de pdf_getLinkedObjects pour retourner toutes les commandes
+	 * Au lieu de les mettre dans note_public quand il y en a plusieurs
+	 *
+	 * @param	Object		$object				Object
+	 * @param	Translate	$outputlangs		Output language
+	 * @return	array							Array of linked objects
+	 */
+	protected function getLinkedObjectsForPDF(&$object, $outputlangs)
+	{
+		$linkedobjects = array();
+		$object->fetchObjectLinked();
+
+		foreach ($object->linkedObjects as $objecttype => $objects) {
+			if ($objecttype == 'commande' || $objecttype == 'supplier_order') {
+				$outputlangs->load('orders');
+
+				// Contrairement à la fonction du core, on retourne TOUJOURS dans $linkedobjects
+				// même s'il y a plusieurs commandes
+				foreach ($objects as $elementobject) {
+					if (!isset($linkedobjects[$objecttype])) {
+						$linkedobjects[$objecttype] = array(
+							'ref_title' => $outputlangs->transnoentities("RefOrder"),
+							'refs' => array(),
+							'dates' => array()
+						);
+					}
+					$linkedobjects[$objecttype]['refs'][] = $outputlangs->transnoentities($elementobject->ref);
+					$linkedobjects[$objecttype]['dates'][] = dol_print_date($elementobject->date, 'day', '', $outputlangs);
+				}
+			}
+		}
+
+		return $linkedobjects;
+	}
+
+	/**
 	 * Version personnalisée de pdf_writeLinkedObjects pour format condensé
 	 * Au lieu de "Réf. commande : XXX / Date : XX/XX/XXXX"
 	 * Affiche "Réf. commande :\nXXX du XX/XX/XXXX"
@@ -2576,24 +2612,28 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	 */
 	protected function writeLinkedObjectsCondensed(&$pdf, $object, $outputlangs, $posx, $posy, $w, $h, $align, $default_font_size)
 	{
-		$linkedobjects = pdf_getLinkedObjects($object, $outputlangs);
-
-		// DEBUG: Écrire dans un fichier pour voir la structure des données
-		file_put_contents('/tmp/debug_linked_objects.txt', print_r($linkedobjects, true));
+		$linkedobjects = $this->getLinkedObjectsForPDF($object, $outputlangs);
 
 		if (!empty($linkedobjects)) {
 			foreach ($linkedobjects as $linkedobject) {
-				$reftoshow = $linkedobject["ref_title"].' : '.$linkedobject["ref_value"];
-				if (!empty($linkedobject["date_value"])) {
-					// Remplacer " / " par " du "
-					$reftoshow .= ' / '.$linkedobject["date_value"];
-					$reftoshow = str_replace(' / ', ' du ', $reftoshow);
-				}
-
+				// Afficher le titre
 				$posy += 3;
 				$pdf->SetXY($posx, $posy);
 				$pdf->SetFont('', '', $default_font_size - 2);
-				$pdf->MultiCell($w, $h, $reftoshow, '', $align);
+				$pdf->MultiCell($w, $h, $linkedobject['ref_title'].' :', '', $align);
+
+				// Afficher chaque commande : "25_11_002 du 16/11/2025"
+				foreach ($linkedobject['refs'] as $index => $ref) {
+					$posy = $pdf->getY();
+					$reftoshow = $ref;
+					if (isset($linkedobject['dates'][$index])) {
+						$reftoshow .= ' du ' . $linkedobject['dates'][$index];
+					}
+
+					$pdf->SetXY($posx, $posy);
+					$pdf->SetFont('', '', $default_font_size - 2);
+					$pdf->MultiCell($w, $h, $reftoshow, '', $align);
+				}
 			}
 		}
 
