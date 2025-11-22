@@ -749,13 +749,19 @@ class pdf_sponge2 extends ModelePDFFactures
 						// Check if this is the section title service (ID 361 - Libelle_Cde)
 						$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
 
-						// Temporarily disable linked object display in descriptions for non-section titles
+						// Modify linked object display in descriptions
 						$tmpDescOrigin = '';
-						if (!$isSectionTitle && !empty($object->lines[$i]->desc)) {
+						if (!empty($object->lines[$i]->desc)) {
 							// Save original description
 							$tmpDescOrigin = $object->lines[$i]->desc;
-							// Remove "Commande XXX - date" pattern from description
-							$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
+
+							if ($isSectionTitle) {
+								// For section titles (ID 361), replace "Commande" with "AR"
+								$object->lines[$i]->desc = preg_replace('/\bCommande\s+/', 'AR ', $object->lines[$i]->desc);
+							} else {
+								// For other lines, remove the command reference completely
+								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
+							}
 						}
 
 						$pdf->startTransaction();
@@ -764,7 +770,7 @@ class pdf_sponge2 extends ModelePDFFactures
 						$pageposafter = $pdf->getPage();
 
 						// Restore original description after display
-						if (!$isSectionTitle && $tmpDescOrigin !== '') {
+						if ($tmpDescOrigin !== '') {
 							$object->lines[$i]->desc = $tmpDescOrigin;
 						}
 
@@ -774,8 +780,14 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
 
 							// Re-apply description filter before second attempt
-							if (!$isSectionTitle && $tmpDescOrigin !== '') {
-								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
+							if ($tmpDescOrigin !== '') {
+								if ($isSectionTitle) {
+									// For section titles (ID 361), replace "Commande" with "AR"
+									$object->lines[$i]->desc = preg_replace('/\bCommande\s+/', 'AR ', $tmpDescOrigin);
+								} else {
+									// For other lines, remove the command reference completely
+									$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
+								}
 							}
 
 							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
@@ -806,7 +818,7 @@ class pdf_sponge2 extends ModelePDFFactures
 						$posYAfterDescription = $pdf->GetY();
 
 						// Final restore of original description
-						if (!$isSectionTitle && $tmpDescOrigin !== '') {
+						if ($tmpDescOrigin !== '') {
 							$object->lines[$i]->desc = $tmpDescOrigin;
 						}
 					}
