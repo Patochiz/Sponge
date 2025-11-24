@@ -1735,6 +1735,35 @@ class pdf_sponge2 extends ModelePDFFactures
 		$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 		$pdf->MultiCell($largcol2, $tab2_hl, price($sign * ($total_ht + (!empty($object->remise) ? $object->remise : 0)), 0, $outputlangs), 0, 'R', 1);
 
+		// Gestion de l'escompte si défini sur le client
+		$escompte_percent = 0;
+		$escompte_amount = 0;
+		$total_ht_with_escompte = $total_ht;
+		$escompte_coef = 1;
+
+		if (!empty($object->thirdparty->array_options['options_escompte']) && $object->thirdparty->array_options['options_escompte'] > 0) {
+			$escompte_percent = $object->thirdparty->array_options['options_escompte'];
+			$escompte_amount = $total_ht * $escompte_percent / 100;
+			$total_ht_with_escompte = $total_ht - $escompte_amount;
+			$escompte_coef = (100 - $escompte_percent) / 100;
+
+			// Afficher le montant de l'escompte
+			$index++;
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->SetXY($col1x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("Escompte").' '.vatrate($escompte_percent, 1), 0, 'L', 1);
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, '- '.price($escompte_amount, 0, $outputlangs), 0, 'R', 1);
+
+			// Afficher le Total HT avec escompte
+			$index++;
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->SetXY($col1x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalHT").' '.$outputlangs->transnoentities("WithDiscount"), 0, 'L', 1);
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ht_with_escompte, 0, $outputlangs), 0, 'R', 1);
+		}
+
 		// Show VAT by rates and total
 		$pdf->SetFillColor(248, 248, 248);
 
@@ -1777,6 +1806,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = $total_localtax * $escompte_coef;
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1814,6 +1844,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = $total_localtax * $escompte_coef;
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1872,7 +1903,8 @@ class pdf_sponge2 extends ModelePDFFactures
 						$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 						$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-						$pdf->MultiCell($largcol2, $tab2_hl, price(price2num($tvaval['amount'], 'MT'), 0, $outputlangs), 0, 'R', 1);
+						$tva_amount_display = price2num($tvaval['amount'], 'MT') * $escompte_coef;
+						$pdf->MultiCell($largcol2, $tab2_hl, price($tva_amount_display, 0, $outputlangs), 0, 'R', 1);
 					}
 				}
 
@@ -1906,6 +1938,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = $total_localtax * $escompte_coef;
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1944,6 +1977,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = $total_localtax * $escompte_coef;
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1969,7 +2003,8 @@ class pdf_sponge2 extends ModelePDFFactures
 				$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalTTC").(is_object($outputlangsbis) ? ' / '.$outputlangsbis->transnoentities("TotalTTC") : ''), $useborder, 'L', 1);
 
 				$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-				$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ttc, 0, $outputlangs), $useborder, 'R', 1);
+				$total_ttc_display = $total_ttc * $escompte_coef;
+				$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ttc_display, 0, $outputlangs), $useborder, 'R', 1);
 
 
 				// Retained warranty
