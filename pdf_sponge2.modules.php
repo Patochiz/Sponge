@@ -2375,7 +2375,9 @@ class pdf_sponge2 extends ModelePDFFactures
 		if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
 			$title .= ' - '.$outputlangsbis->transnoentities("DateInvoice");
 		}
+		$pdf->SetFont('', 'B', $default_font_size + 1);
 		$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date, "day", false, $outputlangs, true), '', 'R');
+		$pdf->SetFont('', '', $default_font_size - 2);
 
 		if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
 			$posy += 4;
@@ -2392,7 +2394,9 @@ class pdf_sponge2 extends ModelePDFFactures
 			if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
 				$title .= ' - '.$outputlangsbis->transnoentities("DateDue");
 			}
+			$pdf->SetFont('', 'B', $default_font_size + 1);
 			$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date_lim_reglement, "day", false, $outputlangs, true), '', 'R');
+			$pdf->SetFont('', '', $default_font_size - 2);
 		}
 
 		if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && $object->thirdparty->code_client) {
