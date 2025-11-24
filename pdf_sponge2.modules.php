@@ -1743,8 +1743,8 @@ class pdf_sponge2 extends ModelePDFFactures
 
 		if (!empty($object->thirdparty->array_options['options_escompte']) && $object->thirdparty->array_options['options_escompte'] > 0) {
 			$escompte_percent = $object->thirdparty->array_options['options_escompte'];
-			$escompte_amount = $total_ht * $escompte_percent / 100;
-			$total_ht_with_escompte = $total_ht - $escompte_amount;
+			$escompte_amount = price2num($total_ht * $escompte_percent / 100, 'MT');
+			$total_ht_with_escompte = price2num($total_ht - $escompte_amount, 'MT');
 			$escompte_coef = (100 - $escompte_percent) / 100;
 
 			// Afficher le montant de l'escompte
@@ -1806,7 +1806,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
-							$total_localtax = $total_localtax * $escompte_coef;
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1844,7 +1844,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
-							$total_localtax = $total_localtax * $escompte_coef;
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1903,7 +1903,7 @@ class pdf_sponge2 extends ModelePDFFactures
 						$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 						$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-						$tva_amount_display = price2num($tvaval['amount'], 'MT') * $escompte_coef;
+						$tva_amount_display = price2num(price2num($tvaval["amount"], "MT") * $escompte_coef, "MT");
 						$pdf->MultiCell($largcol2, $tab2_hl, price($tva_amount_display, 0, $outputlangs), 0, 'R', 1);
 					}
 				}
@@ -1938,7 +1938,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
-							$total_localtax = $total_localtax * $escompte_coef;
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1977,7 +1977,7 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
-							$total_localtax = $total_localtax * $escompte_coef;
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -2003,7 +2003,7 @@ class pdf_sponge2 extends ModelePDFFactures
 				$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalTTC").(is_object($outputlangsbis) ? ' / '.$outputlangsbis->transnoentities("TotalTTC") : ''), $useborder, 'L', 1);
 
 				$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-				$total_ttc_display = $total_ttc * $escompte_coef;
+				$total_ttc_display = price2num($total_ttc * $escompte_coef, "MT");
 				$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ttc_display, 0, $outputlangs), $useborder, 'R', 1);
 
 
