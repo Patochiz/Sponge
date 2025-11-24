@@ -2387,7 +2387,7 @@ class pdf_sponge2 extends ModelePDFFactures
 		}
 
 		if ($object->type != 2) {
-			$posy += 3;
+			$posy += 5;
 			$pdf->SetXY($posx, $posy);
 			$pdf->SetTextColor(0, 0, 60);
 			$title = $outputlangs->transnoentities("DateDue");
