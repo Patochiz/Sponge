@@ -2252,44 +2252,57 @@ class pdf_sponge2 extends ModelePDFFactures
 		$pdf->SetFont('', 'B', $default_font_size + 3);
 		$pdf->SetXY($posx, $posy);
 		$pdf->SetTextColor(0, 0, 60);
-		$title = $outputlangs->transnoentities("PdfInvoiceTitle");
-		if ($object->type == 1) {
-			$title = $outputlangs->transnoentities("InvoiceReplacement");
+
+		// Check if pro_forma extrafield is set to true
+		$isProForma = false;
+		if (!empty($object->array_options['options_pro_forma'])) {
+			$isProForma = true;
 		}
-		if ($object->type == 2) {
-			$title = $outputlangs->transnoentities("InvoiceAvoir");
-		}
-		if ($object->type == 3) {
-			$title = $outputlangs->transnoentities("InvoiceDeposit");
-		}
-		if ($object->type == 4) {
-			$title = $outputlangs->transnoentities("InvoiceProForma");
-		}
-		if ($this->situationinvoice) {
-			$langs->loadLangs(array("other"));
-			$title = $outputlangs->transnoentities("PDFInvoiceSituation") . " " . $outputlangs->transnoentities("NumberingShort") . $object->situation_counter . " -";
-		}
-		if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
-			$title .= ' - ';
-			if ($object->type == 0) {
-				if ($this->situationinvoice) {
-					$title .= $outputlangsbis->transnoentities("PDFInvoiceSituation");
-				}
-				$title .= $outputlangsbis->transnoentities("PdfInvoiceTitle");
-			} elseif ($object->type == 1) {
-				$title .= $outputlangsbis->transnoentities("InvoiceReplacement");
-			} elseif ($object->type == 2) {
-				$title .= $outputlangsbis->transnoentities("InvoiceAvoir");
-			} elseif ($object->type == 3) {
-				$title .= $outputlangsbis->transnoentities("InvoiceDeposit");
-			} elseif ($object->type == 4) {
-				$title .= $outputlangsbis->transnoentities("InvoiceProForma");
+
+		if ($isProForma) {
+			// Display "Facture Pro Forma" for pro forma invoices
+			$title = "Facture Pro Forma";
+		} else {
+			// Standard invoice title logic
+			$title = $outputlangs->transnoentities("PdfInvoiceTitle");
+			if ($object->type == 1) {
+				$title = $outputlangs->transnoentities("InvoiceReplacement");
 			}
-		}
-		$title .= ' '.$outputlangs->convToOutputCharset($object->ref);
-		if ($object->statut == $object::STATUS_DRAFT) {
-			$pdf->SetTextColor(128, 0, 0);
-			$title .= ' - '.$outputlangs->transnoentities("NotValidated");
+			if ($object->type == 2) {
+				$title = $outputlangs->transnoentities("InvoiceAvoir");
+			}
+			if ($object->type == 3) {
+				$title = $outputlangs->transnoentities("InvoiceDeposit");
+			}
+			if ($object->type == 4) {
+				$title = $outputlangs->transnoentities("InvoiceProForma");
+			}
+			if ($this->situationinvoice) {
+				$langs->loadLangs(array("other"));
+				$title = $outputlangs->transnoentities("PDFInvoiceSituation") . " " . $outputlangs->transnoentities("NumberingShort") . $object->situation_counter . " -";
+			}
+			if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
+				$title .= ' - ';
+				if ($object->type == 0) {
+					if ($this->situationinvoice) {
+						$title .= $outputlangsbis->transnoentities("PDFInvoiceSituation");
+					}
+					$title .= $outputlangsbis->transnoentities("PdfInvoiceTitle");
+				} elseif ($object->type == 1) {
+					$title .= $outputlangsbis->transnoentities("InvoiceReplacement");
+				} elseif ($object->type == 2) {
+					$title .= $outputlangsbis->transnoentities("InvoiceAvoir");
+				} elseif ($object->type == 3) {
+					$title .= $outputlangsbis->transnoentities("InvoiceDeposit");
+				} elseif ($object->type == 4) {
+					$title .= $outputlangsbis->transnoentities("InvoiceProForma");
+				}
+			}
+			$title .= ' '.$outputlangs->convToOutputCharset($object->ref);
+			if ($object->statut == $object::STATUS_DRAFT) {
+				$pdf->SetTextColor(128, 0, 0);
+				$title .= ' - '.$outputlangs->transnoentities("NotValidated");
+			}
 		}
 
 		$pdf->MultiCell($w, 3, $title, '', 'R');
