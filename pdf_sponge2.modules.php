@@ -332,7 +332,7 @@ class pdf_sponge2 extends ModelePDFFactures
 				$default_font_size = pdf_getPDFFontSize($outputlangs); // Must be after pdf_getInstance
 				$pdf->SetAutoPageBreak(1, 0);
 
-				$this->heightforinfotot = 50 + (4 * $nbpayments); // Height reserved to output the info and total part and payment part
+				$this->heightforinfotot = 25 + (4 * $nbpayments); // Height reserved to output the info and total part and payment part (reduced from 50 to avoid empty pages)
 				$this->heightforfreetext = (isset($conf->global->MAIN_PDF_FREETEXT_HEIGHT) ? $conf->global->MAIN_PDF_FREETEXT_HEIGHT : 5); // Height reserved to output the free text on last page
 				$this->heightforfooter = $this->marge_basse + (!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS') ? 12 : 22); // Height reserved to output the footer (value include bottom margin)
 
@@ -746,15 +746,49 @@ class pdf_sponge2 extends ModelePDFFactures
 
 					// Description of product line
 					if ($this->getColumnStatus('desc')) {
+						// Check if this is the section title service (ID 361 - Libelle_Cde)
+						$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
+						// Modify linked object display in descriptions
+						$tmpDescOrigin = '';
+						if (!empty($object->lines[$i]->desc)) {
+							// Save original description
+							$tmpDescOrigin = $object->lines[$i]->desc;
+
+							if ($isSectionTitle) {
+								// For section titles (ID 361), replace "Commande XXX - date" with "AR XXX - date"
+								$object->lines[$i]->desc = preg_replace('/(\n?)Commande(\s+[^\s]+\s+-\s+[^\n]+)/', '$1AR$2', $object->lines[$i]->desc);
+							} else {
+								// For other lines, remove the command reference completely
+								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
+							}
+						}
+
 						$pdf->startTransaction();
 
 						$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 						$pageposafter = $pdf->getPage();
 
+						// Restore original description after display
+						if ($tmpDescOrigin !== '') {
+							$object->lines[$i]->desc = $tmpDescOrigin;
+						}
+
 						if ($pageposafter > $pageposbefore) {	// There is a pagebreak
 							$pdf->rollbackTransaction(true);
 							$pageposafter = $pageposbefore;
 							$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
+
+							// Re-apply description filter before second attempt
+							if ($tmpDescOrigin !== '') {
+								if ($isSectionTitle) {
+									// For section titles (ID 361), replace "Commande XXX - date" with "AR XXX - date"
+									$object->lines[$i]->desc = preg_replace('/(\n?)Commande(\s+[^\s]+\s+-\s+[^\n]+)/', '$1AR$2', $tmpDescOrigin);
+								} else {
+									// For other lines, remove the command reference completely
+									$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
+								}
+							}
 
 							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 
@@ -782,6 +816,11 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->commitTransaction();
 						}
 						$posYAfterDescription = $pdf->GetY();
+
+						// Final restore of original description
+						if ($tmpDescOrigin !== '') {
+							$object->lines[$i]->desc = $tmpDescOrigin;
+						}
 					}
 
 					$nexY = max($pdf->GetY(), $posYAfterImage, $posYAfterDescription);
@@ -806,8 +845,11 @@ class pdf_sponge2 extends ModelePDFFactures
 						$nexY = max($pdf->GetY(), $nexY);
 					}
 
+					// Check if this is the section title service (ID 361 - Libelle_Cde)
+					$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
 					// Unit price before discount
-					if ($this->getColumnStatus('subprice')) {
+					if ($this->getColumnStatus('subprice') && !$isSectionTitle) {
 						$up_excl_tax = pdf_getlineupexcltax($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'subprice', $up_excl_tax);
 						$nexY = max($pdf->GetY(), $nexY);
@@ -815,7 +857,7 @@ class pdf_sponge2 extends ModelePDFFactures
 
 					// Quantity
 					// Enough for 6 chars
-					if ($this->getColumnStatus('qty')) {
+					if ($this->getColumnStatus('qty') && !$isSectionTitle) {
 						$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'qty', $qty);
 						$nexY = max($pdf->GetY(), $nexY);
@@ -829,7 +871,7 @@ class pdf_sponge2 extends ModelePDFFactures
 					}
 
 					// Unit
-					if ($this->getColumnStatus('unit')) {
+					if ($this->getColumnStatus('unit') && !$isSectionTitle) {
 						$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'unit', $unit);
 						$nexY = max($pdf->GetY(), $nexY);
@@ -843,7 +885,7 @@ class pdf_sponge2 extends ModelePDFFactures
 					}
 
 					// Total excl tax line (HT)
-					if ($this->getColumnStatus('totalexcltax')) {
+					if ($this->getColumnStatus('totalexcltax') && !$isSectionTitle) {
 						$total_excl_tax = pdf_getlinetotalexcltax($object, $i, $outputlangs, $hidedetails);
 						$this->printStdColumnContent($pdf, $curY, 'totalexcltax', $total_excl_tax);
 						$nexY = max($pdf->GetY(), $nexY);
@@ -1309,52 +1351,41 @@ class pdf_sponge2 extends ModelePDFFactures
 				$pdf->SetFont('', '', $default_font_size - 2);
 				$pdf->SetXY($this->marge_gauche, $posy);
 				$titre = $outputlangs->transnoentities("PaymentMode").':';
-				$pdf->MultiCell($posxend - $this->marge_gauche, 5, $titre, 0, 'L');
+				$pdf->MultiCell($posxval - $this->marge_gauche, 5, $titre, 0, 'L');
 
 				$pdf->SetFont('', '', $default_font_size - 2);
 				$pdf->SetXY($posxval, $posy);
 				$lib_mode_reg = $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) != 'PaymentType'.$object->mode_reglement_code ? $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) : $outputlangs->convToOutputCharset($object->mode_reglement);
 
-				//#21654: add account number used for the debit
-if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE') {
-    $pdf->SetFont('', 'B', $default_font_size - 2);
-    $pdf->SetXY($this->marge_gauche, $posy);
-    $titre = $outputlangs->transnoentities("PaymentMode").':';
-    $pdf->MultiCell(80, 5, $titre, 0, 'L');
-
-    $pdf->SetFont('', '', $default_font_size - 2);
-    $pdf->SetXY($posxval, $posy);
-    $lib_mode_reg = $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) != 'PaymentType'.$object->mode_reglement_code ? $outputlangs->transnoentities("PaymentType".$object->mode_reglement_code) : $outputlangs->convToOutputCharset($object->mode_reglement);
-    $pdf->MultiCell(80, 5, $lib_mode_reg, 0, 'L');
-
-    $posy = $pdf->GetY() + 2;
-
-    // Affichage du RIB du tiers
-    require_once DOL_DOCUMENT_ROOT.'/societe/class/companybankaccount.class.php';
-    $bac = new CompanyBankAccount($this->db);
-    $result = $bac->fetch(0, '', $object->thirdparty->id);
-    
-    if ($result > 0 && !empty($bac->iban)) {
-        $diffsizetitle = (!getDolGlobalString('PDF_DIFFSIZE_TITLE') ? 3 : $conf->global->PDF_DIFFSIZE_TITLE);
-        
-        // Afficher le titre personnalisé
-        $pdf->SetXY($this->marge_gauche, $posy);
-        $pdf->SetFont('', 'B', $default_font_size - $diffsizetitle);
-        $pdf->MultiCell(100, 3, 'Montant prélevé sur compte :', 0, 'L', 0);
-        $posy = $pdf->GetY() + 1;
-        
-        $curx = $this->marge_gauche;
-        $cury = $posy;
-        
-        // Appeler pdf_bank() avec $onlynumber = 1 pour afficher uniquement le tableau
-        $posy = pdf_bank($pdf, $outputlangs, $curx, $cury, $bac, 1, $default_font_size);
-        $posy += 2;
-    }
-}
-
 				$pdf->MultiCell($posxend - $posxval, 5, $lib_mode_reg, 0, 'L');
 
 				$posy = $pdf->GetY();
+
+				//#21654: add account number used for the debit (only for PRE mode)
+				if ($object->mode_reglement_code == 'PRE') {
+					// Affichage du RIB du tiers
+					require_once DOL_DOCUMENT_ROOT.'/societe/class/companybankaccount.class.php';
+					$bac = new CompanyBankAccount($this->db);
+					$result = $bac->fetch(0, '', $object->thirdparty->id);
+
+					if ($result > 0 && !empty($bac->iban)) {
+						$diffsizetitle = (!getDolGlobalString('PDF_DIFFSIZE_TITLE') ? 3 : $conf->global->PDF_DIFFSIZE_TITLE);
+
+						$posy += 2;
+						// Afficher le titre personnalisé
+						$pdf->SetXY($this->marge_gauche, $posy);
+						$pdf->SetFont('', 'B', $default_font_size - $diffsizetitle);
+						$pdf->MultiCell(100, 3, 'Montant prélevé sur compte :', 0, 'L', 0);
+						$posy = $pdf->GetY() + 1;
+
+						$curx = $this->marge_gauche;
+						$cury = $posy;
+
+						// Appeler pdf_bank() avec $onlynumber = 1 pour afficher uniquement le tableau
+						$posy = pdf_bank($pdf, $outputlangs, $curx, $cury, $bac, 1, $default_font_size);
+						$posy += 2;
+					}
+				}
 			}
 
 			// Show if Option VAT debit option is on also if transmitter is french
@@ -1704,6 +1735,35 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 		$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 		$pdf->MultiCell($largcol2, $tab2_hl, price($sign * ($total_ht + (!empty($object->remise) ? $object->remise : 0)), 0, $outputlangs), 0, 'R', 1);
 
+		// Gestion de l'escompte si défini sur le client
+		$escompte_percent = 0;
+		$escompte_amount = 0;
+		$total_ht_with_escompte = $total_ht;
+		$escompte_coef = 1;
+
+		if (!empty($object->thirdparty->array_options['options_escompte']) && $object->thirdparty->array_options['options_escompte'] > 0) {
+			$escompte_percent = $object->thirdparty->array_options['options_escompte'];
+			$escompte_amount = price2num($total_ht * $escompte_percent / 100, 'MT');
+			$total_ht_with_escompte = price2num($total_ht - $escompte_amount, 'MT');
+			$escompte_coef = (100 - $escompte_percent) / 100;
+
+			// Afficher le montant de l'escompte
+			$index++;
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->SetXY($col1x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("Escompte").' '.vatrate($escompte_percent, 1), 0, 'L', 1);
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, '- '.price($escompte_amount, 0, $outputlangs), 0, 'R', 1);
+
+			// Afficher le Total HT avec escompte
+			$index++;
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->SetXY($col1x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalHT").' '.$outputlangs->transnoentities("WithDiscount"), 0, 'L', 1);
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ht_with_escompte, 0, $outputlangs), 0, 'R', 1);
+		}
+
 		// Show VAT by rates and total
 		$pdf->SetFillColor(248, 248, 248);
 
@@ -1746,6 +1806,7 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1783,6 +1844,7 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1841,7 +1903,8 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 						$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 						$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-						$pdf->MultiCell($largcol2, $tab2_hl, price(price2num($tvaval['amount'], 'MT'), 0, $outputlangs), 0, 'R', 1);
+						$tva_amount_display = price2num(price2num($tvaval["amount"], "MT") * $escompte_coef, "MT");
+						$pdf->MultiCell($largcol2, $tab2_hl, price($tva_amount_display, 0, $outputlangs), 0, 'R', 1);
 					}
 				}
 
@@ -1875,6 +1938,7 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1913,6 +1977,7 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 							$pdf->MultiCell($col2x - $col1x, $tab2_hl, $totalvat, 0, 'L', 1);
 
 							$total_localtax = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? price2num($tvaval * $object->multicurrency_tx, 'MT') : $tvaval);
+							$total_localtax = price2num($total_localtax * $escompte_coef, "MT");
 
 							$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 							$pdf->MultiCell($largcol2, $tab2_hl, price($total_localtax, 0, $outputlangs), 0, 'R', 1);
@@ -1938,7 +2003,8 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 				$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalTTC").(is_object($outputlangsbis) ? ' / '.$outputlangsbis->transnoentities("TotalTTC") : ''), $useborder, 'L', 1);
 
 				$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-				$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ttc, 0, $outputlangs), $useborder, 'R', 1);
+				$total_ttc_display = price2num($total_ttc * $escompte_coef, "MT");
+				$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ttc_display, 0, $outputlangs), $useborder, 'R', 1);
 
 
 				// Retained warranty
@@ -2309,7 +2375,9 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 		if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
 			$title .= ' - '.$outputlangsbis->transnoentities("DateInvoice");
 		}
+		$pdf->SetFont('', 'B', $default_font_size + 1);
 		$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date, "day", false, $outputlangs, true), '', 'R');
+		$pdf->SetFont('', '', $default_font_size - 2);
 
 		if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
 			$posy += 4;
@@ -2319,14 +2387,16 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 		}
 
 		if ($object->type != 2) {
-			$posy += 3;
+			$posy += 5;
 			$pdf->SetXY($posx, $posy);
 			$pdf->SetTextColor(0, 0, 60);
 			$title = $outputlangs->transnoentities("DateDue");
 			if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
 				$title .= ' - '.$outputlangsbis->transnoentities("DateDue");
 			}
+			$pdf->SetFont('', 'B', $default_font_size + 1);
 			$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date_lim_reglement, "day", false, $outputlangs, true), '', 'R');
+			$pdf->SetFont('', '', $default_font_size - 2);
 		}
 
 		if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && $object->thirdparty->code_client) {
@@ -2353,9 +2423,9 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 
 		$top_shift = 0;
 		$shipp_shift = 0;
-		// Show list of linked objects
+		// Show list of linked objects (using custom condensed format)
 		$current_y = $pdf->getY();
-		$posy = pdf_writeLinkedObjects($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
+		$posy = $this->writeLinkedObjectsCondensed($pdf, $object, $outputlangs, $posx, $posy, $w, 3, 'R', $default_font_size);
 		if ($current_y < $pdf->getY()) {
 			$top_shift = $pdf->getY() - $current_y;
 		}
@@ -2526,6 +2596,88 @@ if (!empty($object->mode_reglement_code) && $object->mode_reglement_code == 'PRE
 	{
 		$showdetails = getDolGlobalInt('MAIN_GENERATE_DOCUMENTS_SHOW_FOOT_DETAILS', 0);
 		return pdf_pagefoot($pdf, $outputlangs, 'INVOICE_FREE_TEXT', $this->emetteur, $heightforqrinvoice + $this->marge_basse, $this->marge_gauche, $this->page_hauteur, $object, $showdetails, $hidefreetext, $this->page_largeur, $this->watermark);
+	}
+
+	/**
+	 * Version personnalisée de pdf_getLinkedObjects pour retourner toutes les commandes
+	 * Au lieu de les mettre dans note_public quand il y en a plusieurs
+	 *
+	 * @param	Object		$object				Object
+	 * @param	Translate	$outputlangs		Output language
+	 * @return	array							Array of linked objects
+	 */
+	protected function getLinkedObjectsForPDF(&$object, $outputlangs)
+	{
+		$linkedobjects = array();
+		$object->fetchObjectLinked();
+
+		foreach ($object->linkedObjects as $objecttype => $objects) {
+			if ($objecttype == 'commande' || $objecttype == 'supplier_order') {
+				$outputlangs->load('orders');
+
+				// Contrairement à la fonction du core, on retourne TOUJOURS dans $linkedobjects
+				// même s'il y a plusieurs commandes
+				foreach ($objects as $elementobject) {
+					if (!isset($linkedobjects[$objecttype])) {
+						$linkedobjects[$objecttype] = array(
+							'ref_title' => $outputlangs->transnoentities("RefOrder"),
+							'refs' => array(),
+							'dates' => array()
+						);
+					}
+					$linkedobjects[$objecttype]['refs'][] = $outputlangs->transnoentities($elementobject->ref);
+					$linkedobjects[$objecttype]['dates'][] = dol_print_date($elementobject->date, 'day', '', $outputlangs);
+				}
+			}
+		}
+
+		return $linkedobjects;
+	}
+
+	/**
+	 * Version personnalisée de pdf_writeLinkedObjects pour format condensé
+	 * Au lieu de "Réf. commande : XXX / Date : XX/XX/XXXX"
+	 * Affiche "Réf. commande :\nXXX du XX/XX/XXXX"
+	 *
+	 * @param	TCPDF		$pdf				PDF object
+	 * @param	Facture		$object				Object
+	 * @param	Translate	$outputlangs		Output language
+	 * @param	int			$posx				X position
+	 * @param	int			$posy				Y position
+	 * @param	int			$w					Width
+	 * @param	int			$h					Height
+	 * @param	string		$align				Alignment
+	 * @param	int			$default_font_size	Font size
+	 * @return	int								New Y position
+	 */
+	protected function writeLinkedObjectsCondensed(&$pdf, $object, $outputlangs, $posx, $posy, $w, $h, $align, $default_font_size)
+	{
+		$linkedobjects = $this->getLinkedObjectsForPDF($object, $outputlangs);
+
+		if (!empty($linkedobjects)) {
+			foreach ($linkedobjects as $linkedobject) {
+				// Afficher le titre
+				$posy += 3;
+				$pdf->SetXY($posx, $posy);
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$pdf->MultiCell($w, $h, $linkedobject['ref_title'].' :', '', $align);
+
+				// Afficher chaque commande : "25_11_002 du 16/11/2025"
+				foreach ($linkedobject['refs'] as $index => $ref) {
+					$posy = $pdf->getY();
+					$reftoshow = $ref;
+					if (isset($linkedobject['dates'][$index])) {
+						$reftoshow .= ' du ' . $linkedobject['dates'][$index];
+					}
+
+					$pdf->SetXY($posx, $posy);
+					$pdf->SetFont('', '', $default_font_size - 2);
+					$pdf->MultiCell($w, $h, $reftoshow, '', $align);
+				}
+			}
+		}
+
+		return $pdf->getY();
 	}
 
 	/**
