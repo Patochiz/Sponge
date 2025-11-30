@@ -2253,14 +2253,14 @@ class pdf_sponge2 extends ModelePDFFactures
 		$pdf->SetXY($posx, $posy);
 		$pdf->SetTextColor(0, 0, 60);
 
-		// Check if pro_forma extrafield is set to true
+		// Check if pro_forma extrafield is set to true for draft invoices of type 0
 		$isProForma = false;
-		if (!empty($object->array_options['options_pro_forma'])) {
+		if ($object->type == 0 && $object->statut == $object::STATUS_DRAFT && !empty($object->array_options['options_pro_forma'])) {
 			$isProForma = true;
 		}
 
 		if ($isProForma) {
-			// Display "Facture Pro Forma" for pro forma invoices
+			// Display "Facture Pro Forma" for pro forma draft invoices
 			$title = "Facture Pro Forma";
 		} else {
 			// Standard invoice title logic
