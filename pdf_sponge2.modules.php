@@ -2384,32 +2384,39 @@ class pdf_sponge2 extends ModelePDFFactures
 		$pdf->SetXY($posx, $posy);
 		$pdf->SetTextColor(0, 0, 60);
 
-		$title = $outputlangs->transnoentities("DateInvoice");
-		if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
-			$title .= ' - '.$outputlangsbis->transnoentities("DateInvoice");
-		}
-		$pdf->SetFont('', 'B', $default_font_size + 1);
-		$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date, "day", false, $outputlangs, true), '', 'R');
-		$pdf->SetFont('', '', $default_font_size - 2);
-
-		if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
-			$posy += 4;
-			$pdf->SetXY($posx, $posy);
-			$pdf->SetTextColor(0, 0, 60);
-			$pdf->MultiCell($w, 3, $outputlangs->transnoentities("DatePointOfTax")." : ".dol_print_date($object->date_pointoftax, "day", false, $outputlangs), '', 'R');
-		}
-
-		if ($object->type != 2) {
-			$posy += 5;
-			$pdf->SetXY($posx, $posy);
-			$pdf->SetTextColor(0, 0, 60);
-			$title = $outputlangs->transnoentities("DateDue");
+		if ($isProForma) {
+			// For pro forma invoices, display "du jj/mm/aaaa" with the document generation date
+			$pdf->SetFont('', 'B', $default_font_size + 1);
+			$pdf->MultiCell($w, 3, "du ".dol_print_date(dol_now(), "day", false, $outputlangs, true), '', 'R');
+			$pdf->SetFont('', '', $default_font_size - 2);
+		} else {
+			$title = $outputlangs->transnoentities("DateInvoice");
 			if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
-				$title .= ' - '.$outputlangsbis->transnoentities("DateDue");
+				$title .= ' - '.$outputlangsbis->transnoentities("DateInvoice");
 			}
 			$pdf->SetFont('', 'B', $default_font_size + 1);
-			$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date_lim_reglement, "day", false, $outputlangs, true), '', 'R');
+			$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date, "day", false, $outputlangs, true), '', 'R');
 			$pdf->SetFont('', '', $default_font_size - 2);
+
+			if (getDolGlobalString('INVOICE_POINTOFTAX_DATE')) {
+				$posy += 4;
+				$pdf->SetXY($posx, $posy);
+				$pdf->SetTextColor(0, 0, 60);
+				$pdf->MultiCell($w, 3, $outputlangs->transnoentities("DatePointOfTax")." : ".dol_print_date($object->date_pointoftax, "day", false, $outputlangs), '', 'R');
+			}
+
+			if ($object->type != 2) {
+				$posy += 5;
+				$pdf->SetXY($posx, $posy);
+				$pdf->SetTextColor(0, 0, 60);
+				$title = $outputlangs->transnoentities("DateDue");
+				if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
+					$title .= ' - '.$outputlangsbis->transnoentities("DateDue");
+				}
+				$pdf->SetFont('', 'B', $default_font_size + 1);
+				$pdf->MultiCell($w, 3, $title." : ".dol_print_date($object->date_lim_reglement, "day", false, $outputlangs, true), '', 'R');
+				$pdf->SetFont('', '', $default_font_size - 2);
+			}
 		}
 
 		if (!getDolGlobalString('MAIN_PDF_HIDE_CUSTOMER_CODE') && $object->thirdparty->code_client) {
