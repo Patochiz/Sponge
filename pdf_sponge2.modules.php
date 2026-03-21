@@ -399,12 +399,24 @@ class pdf_sponge2 extends ModelePDFFactures
 
 				// Set $this->atleastonediscount if you have at least one discount
 				// and determine category of operation
+				// Detect escompte service line (ID 426)
+				$this->escompte_service_line = -1;
+				$this->escompte_service_percent = 0;
+				$this->escompte_service_amount = 0;
+
 				$categoryOfOperation = 0;
 				$nbProduct = 0;
 				$nbService = 0;
 				for ($i = 0; $i < $nblines; $i++) {
 					if ($object->lines[$i]->remise_percent) {
 						$this->atleastonediscount++;
+					}
+
+					// Detect escompte service line (product ID 426)
+					if (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 426) {
+						$this->escompte_service_line = $i;
+						$this->escompte_service_percent = !empty($object->array_options['options_escompte']) ? $object->array_options['options_escompte'] : 0;
+						$this->escompte_service_amount = abs($object->lines[$i]->total_ht);
 					}
 
 					// determine category of operation
@@ -429,6 +441,11 @@ class pdf_sponge2 extends ModelePDFFactures
 					}
 				}
 				$this->categoryOfOperation = $categoryOfOperation;
+
+				// Augmenter la hauteur de la zone de totaux si escompte service détecté (2 lignes supplémentaires)
+				if ($this->escompte_service_line >= 0 && $this->escompte_service_percent > 0) {
+					$this->heightforinfotot += 10;
+				}
 
 				// Situation invoice handling
 				if ($object->situation_cycle_ref) {
@@ -695,6 +712,11 @@ class pdf_sponge2 extends ModelePDFFactures
 				$pageposbeforeprintlines = $pdf->getPage();
 				$pagenb = $pageposbeforeprintlines;
 				for ($i = 0; $i < $nblines; $i++) {
+					// Ignorer la ligne escompte service (ID 426) - elle sera affichée dans la zone de totaux
+					if (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 426) {
+						continue;
+					}
+
 					$curY = $nexY;
 					$pdf->SetFont('', '', $default_font_size - 1); // Into loop to work with multipage
 					$pdf->SetTextColor(0, 0, 0);
@@ -1732,20 +1754,25 @@ class pdf_sponge2 extends ModelePDFFactures
 		$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities(!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') ? "TotalHT" : "Total").(is_object($outputlangsbis) ? ' / '.$outputlangsbis->transnoentities(!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') ? "TotalHT" : "Total") : ''), 0, 'L', 1);
 
 		$total_ht = ((isModEnabled("multicurrency") && isset($object->multicurrency_tx) && $object->multicurrency_tx != 1) ? $object->multicurrency_total_ht : $object->total_ht);
-		$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-		$pdf->MultiCell($largcol2, $tab2_hl, price($sign * ($total_ht + (!empty($object->remise) ? $object->remise : 0)), 0, $outputlangs), 0, 'R', 1);
 
-		// Gestion de l'escompte si défini sur le client
+		// Gestion de l'escompte
 		$escompte_percent = 0;
 		$escompte_amount = 0;
 		$total_ht_with_escompte = $total_ht;
 		$escompte_coef = 1;
 
-		if (!empty($object->thirdparty->array_options['options_escompte']) && $object->thirdparty->array_options['options_escompte'] > 0) {
-			$escompte_percent = $object->thirdparty->array_options['options_escompte'];
-			$escompte_amount = price2num($total_ht * $escompte_percent / 100, 'MT');
-			$total_ht_with_escompte = price2num($total_ht - $escompte_amount, 'MT');
+		// Mécanisme 1 : Escompte via service ID 426 (module escompte)
+		if ($this->escompte_service_line >= 0 && $this->escompte_service_percent > 0) {
+			$escompte_percent = $this->escompte_service_percent;
+			$escompte_amount = $this->escompte_service_amount;
+			// total_ht de Dolibarr inclut déjà la ligne escompte (négative), on affiche le total HT sans escompte
+			$total_ht_before_escompte = price2num($total_ht + $escompte_amount, 'MT');
+			$total_ht_with_escompte = $total_ht;
 			$escompte_coef = (100 - $escompte_percent) / 100;
+
+			// Afficher Total HT (avant escompte)
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, price($sign * ($total_ht_before_escompte + (!empty($object->remise) ? $object->remise : 0)), 0, $outputlangs), 0, 'R', 1);
 
 			// Afficher le montant de l'escompte
 			$index++;
@@ -1762,6 +1789,38 @@ class pdf_sponge2 extends ModelePDFFactures
 			$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalHT").' '.$outputlangs->transnoentities("WithDiscount"), 0, 'L', 1);
 			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
 			$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ht_with_escompte, 0, $outputlangs), 0, 'R', 1);
+		}
+		// Mécanisme 2 : Escompte via extrafield du client (ancien mécanisme)
+		elseif (!empty($object->thirdparty->array_options['options_escompte']) && $object->thirdparty->array_options['options_escompte'] > 0) {
+			$escompte_percent = $object->thirdparty->array_options['options_escompte'];
+			$escompte_amount = price2num($total_ht * $escompte_percent / 100, 'MT');
+			$total_ht_with_escompte = price2num($total_ht - $escompte_amount, 'MT');
+			$escompte_coef = (100 - $escompte_percent) / 100;
+
+			// Afficher Total HT (avant escompte)
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, price($sign * ($total_ht + (!empty($object->remise) ? $object->remise : 0)), 0, $outputlangs), 0, 'R', 1);
+
+			// Afficher le montant de l'escompte
+			$index++;
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->SetXY($col1x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("Escompte").' '.vatrate($escompte_percent, 1), 0, 'L', 1);
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, '- '.price($escompte_amount, 0, $outputlangs), 0, 'R', 1);
+
+			// Afficher le Total HT avec escompte
+			$index++;
+			$pdf->SetFillColor(255, 255, 255);
+			$pdf->SetXY($col1x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalHT").' '.$outputlangs->transnoentities("WithDiscount"), 0, 'L', 1);
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ht_with_escompte, 0, $outputlangs), 0, 'R', 1);
+		}
+		// Pas d'escompte : afficher le Total HT normal
+		else {
+			$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
+			$pdf->MultiCell($largcol2, $tab2_hl, price($sign * ($total_ht + (!empty($object->remise) ? $object->remise : 0)), 0, $outputlangs), 0, 'R', 1);
 		}
 
 		// Show VAT by rates and total
@@ -2003,7 +2062,13 @@ class pdf_sponge2 extends ModelePDFFactures
 				$pdf->MultiCell($col2x - $col1x, $tab2_hl, $outputlangs->transnoentities("TotalTTC").(is_object($outputlangsbis) ? ' / '.$outputlangsbis->transnoentities("TotalTTC") : ''), $useborder, 'L', 1);
 
 				$pdf->SetXY($col2x, $tab2_top + $tab2_hl * $index);
-				$total_ttc_display = price2num($total_ttc * $escompte_coef, "MT");
+				// Pour l'escompte service (ID 426), le total_ttc de Dolibarr inclut déjà la ligne escompte
+				// On ne doit pas réappliquer le coefficient, contrairement à l'escompte thirdparty
+				if ($this->escompte_service_line >= 0 && $this->escompte_service_percent > 0) {
+					$total_ttc_display = $total_ttc;
+				} else {
+					$total_ttc_display = price2num($total_ttc * $escompte_coef, "MT");
+				}
 				$pdf->MultiCell($largcol2, $tab2_hl, price($sign * $total_ttc_display, 0, $outputlangs), $useborder, 'R', 1);
 
 
