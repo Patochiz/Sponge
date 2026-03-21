@@ -442,6 +442,11 @@ class pdf_sponge2 extends ModelePDFFactures
 				}
 				$this->categoryOfOperation = $categoryOfOperation;
 
+				// Augmenter la hauteur de la zone de totaux si escompte service détecté (2 lignes supplémentaires)
+				if ($this->escompte_service_line >= 0 && $this->escompte_service_percent > 0) {
+					$this->heightforinfotot += 10;
+				}
+
 				// Situation invoice handling
 				if ($object->situation_cycle_ref) {
 					$this->situationinvoice = true;
