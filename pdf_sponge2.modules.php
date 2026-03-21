@@ -771,77 +771,112 @@ class pdf_sponge2 extends ModelePDFFactures
 						// Check if this is the section title service (ID 361 - Libelle_Cde)
 						$isSectionTitle = (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
 
-						// Modify linked object display in descriptions
-						$tmpDescOrigin = '';
-						if (!empty($object->lines[$i]->desc)) {
-							// Save original description
-							$tmpDescOrigin = $object->lines[$i]->desc;
+						if ($isSectionTitle) {
+							// Rendu pleine largeur style Eratosthene - sans libellé produit
+							$pdf->SetFont('', 'B', $default_font_size);
+							$pdf->SetFillColor(230, 230, 230);
+							$pdf->SetTextColor(0, 0, 60);
+							$fullWidth = $this->page_largeur - $this->marge_gauche - $this->marge_droite;
 
-							if ($isSectionTitle) {
-								// For section titles (ID 361), replace "Commande XXX - date" with "AR XXX - date"
-								$object->lines[$i]->desc = preg_replace('/(\n?)Commande(\s+[^\s]+\s+-\s+[^\n]+)/', '$1AR$2', $object->lines[$i]->desc);
-							} else {
+							$pdf->startTransaction();
+
+							$pdf->writeHTMLCell($fullWidth, 0, $this->marge_gauche, $curY,
+								dol_htmlentitiesbr($object->lines[$i]->desc), 0, 1, true, true, 'L', true);
+							$pageposafter = $pdf->getPage();
+
+							if ($pageposafter > $pageposbefore) {	// There is a pagebreak
+								$pdf->rollbackTransaction(true);
+								$pageposafter = $pageposbefore;
+								$pdf->setPageOrientation('', 1, $this->heightforfooter);
+
+								$pdf->SetFont('', 'B', $default_font_size);
+								$pdf->SetFillColor(230, 230, 230);
+								$pdf->SetTextColor(0, 0, 60);
+								$pdf->writeHTMLCell($fullWidth, 0, $this->marge_gauche, $curY,
+									dol_htmlentitiesbr($object->lines[$i]->desc), 0, 1, true, true, 'L', true);
+
+								$pageposafter = $pdf->getPage();
+								$posyafter = $pdf->GetY();
+								if ($posyafter > ($this->page_hauteur - $page_bottom_margin)) {
+									if ($i == ($nblines - 1)) {
+										$pdf->AddPage('', '', true);
+										if (!empty($tplidx)) {
+											$pdf->useTemplate($tplidx);
+										}
+										$pdf->setPage($pageposafter + 1);
+									}
+								} else {
+									if (getDolGlobalString('MAIN_PDF_DATA_ON_FIRST_PAGE')) {
+										$showpricebeforepagebreak = 1;
+									} else {
+										$showpricebeforepagebreak = 0;
+									}
+								}
+							} else { // No pagebreak
+								$pdf->commitTransaction();
+							}
+
+							$posYAfterDescription = $pdf->GetY();
+							$pdf->SetTextColor(0, 0, 0);
+							$pdf->SetFont('', '', $default_font_size - 1);
+						} else {
+							// Lignes normales : modifier l'affichage des références commande
+							$tmpDescOrigin = '';
+							if (!empty($object->lines[$i]->desc)) {
+								$tmpDescOrigin = $object->lines[$i]->desc;
 								// For other lines, remove the command reference completely
 								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
 							}
-						}
 
-						$pdf->startTransaction();
-
-						$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
-						$pageposafter = $pdf->getPage();
-
-						// Restore original description after display
-						if ($tmpDescOrigin !== '') {
-							$object->lines[$i]->desc = $tmpDescOrigin;
-						}
-
-						if ($pageposafter > $pageposbefore) {	// There is a pagebreak
-							$pdf->rollbackTransaction(true);
-							$pageposafter = $pageposbefore;
-							$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
-
-							// Re-apply description filter before second attempt
-							if ($tmpDescOrigin !== '') {
-								if ($isSectionTitle) {
-									// For section titles (ID 361), replace "Commande XXX - date" with "AR XXX - date"
-									$object->lines[$i]->desc = preg_replace('/(\n?)Commande(\s+[^\s]+\s+-\s+[^\n]+)/', '$1AR$2', $tmpDescOrigin);
-								} else {
-									// For other lines, remove the command reference completely
-									$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
-								}
-							}
+							$pdf->startTransaction();
 
 							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
-
 							$pageposafter = $pdf->getPage();
-							$posyafter = $pdf->GetY();
-							//var_dump($posyafter); var_dump(($this->page_hauteur - ($this->heightforfooter+$this->heightforfreetext+$this->heightforinfotot))); exit;
-							if ($posyafter > ($this->page_hauteur - $page_bottom_margin)) {	// There is no space left for total+free text
-								if ($i == ($nblines - 1)) {	// No more lines, and no space left to show total, so we create a new page
-									$pdf->AddPage('', '', true);
-									if (!empty($tplidx)) {
-										$pdf->useTemplate($tplidx);
-									}
-									$pdf->setPage($pageposafter + 1);
-								}
-							} else {
-								// We found a page break
-								// Allows data in the first page if description is long enough to break in multiples pages
-								if (getDolGlobalString('MAIN_PDF_DATA_ON_FIRST_PAGE')) {
-									$showpricebeforepagebreak = 1;
-								} else {
-									$showpricebeforepagebreak = 0;
-								}
-							}
-						} else { // No pagebreak
-							$pdf->commitTransaction();
-						}
-						$posYAfterDescription = $pdf->GetY();
 
-						// Final restore of original description
-						if ($tmpDescOrigin !== '') {
-							$object->lines[$i]->desc = $tmpDescOrigin;
+							// Restore original description after display
+							if ($tmpDescOrigin !== '') {
+								$object->lines[$i]->desc = $tmpDescOrigin;
+							}
+
+							if ($pageposafter > $pageposbefore) {	// There is a pagebreak
+								$pdf->rollbackTransaction(true);
+								$pageposafter = $pageposbefore;
+								$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
+
+								// Re-apply description filter before second attempt
+								if ($tmpDescOrigin !== '') {
+									$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
+								}
+
+								$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
+
+								$pageposafter = $pdf->getPage();
+								$posyafter = $pdf->GetY();
+								if ($posyafter > ($this->page_hauteur - $page_bottom_margin)) {	// There is no space left for total+free text
+									if ($i == ($nblines - 1)) {	// No more lines, and no space left to show total, so we create a new page
+										$pdf->AddPage('', '', true);
+										if (!empty($tplidx)) {
+											$pdf->useTemplate($tplidx);
+										}
+										$pdf->setPage($pageposafter + 1);
+									}
+								} else {
+									// We found a page break
+									if (getDolGlobalString('MAIN_PDF_DATA_ON_FIRST_PAGE')) {
+										$showpricebeforepagebreak = 1;
+									} else {
+										$showpricebeforepagebreak = 0;
+									}
+								}
+							} else { // No pagebreak
+								$pdf->commitTransaction();
+							}
+							$posYAfterDescription = $pdf->GetY();
+
+							// Final restore of original description
+							if ($tmpDescOrigin !== '') {
+								$object->lines[$i]->desc = $tmpDescOrigin;
+							}
 						}
 					}
 
