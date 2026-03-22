@@ -2620,6 +2620,11 @@ class pdf_sponge2 extends ModelePDFFactures
 			$mode = 'target';
 			$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, ($usecontact ? $object->contact : ''), $usecontact, $mode, $object);
 
+			// Add billing contact email if not already included
+			if ($usecontact && !empty($object->contact->email) && strpos($carac_client, $object->contact->email) === false) {
+				$carac_client .= "\n" . $object->contact->email;
+			}
+
 			// Show recipient
 			$widthrecbox = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 100;
 			if ($this->page_largeur < 210) {
