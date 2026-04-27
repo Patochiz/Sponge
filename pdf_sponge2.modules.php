@@ -821,60 +821,45 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->SetFont('', '', $default_font_size - 1);
 						} else {
 							// Lignes normales : supprimer la référence commande (présente uniquement en cas de multi-commandes)
-							$tmpDescOrigin = '';
-							$tmpLabelOrigin = '';
 							$orderRefPattern = '/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/';
-							$localHidedesc = $hidedesc;
 
-							if (!empty($object->lines[$i]->desc)) {
-								$tmpDescOrigin = $object->lines[$i]->desc;
-								$filtered = preg_replace($orderRefPattern, '', $object->lines[$i]->desc);
-								if (trim($filtered) === '') {
-									// desc ne contenait que la référence commande : on vide desc et on masque
-									// la description pour empêcher Dolibarr de la régénérer depuis origin
-									$object->lines[$i]->desc = '';
-									$localHidedesc = 1;
-								} else {
-									$object->lines[$i]->desc = $filtered;
-								}
-							}
-							if (!empty($object->lines[$i]->label)) {
-								$tmpLabelOrigin = $object->lines[$i]->label;
-								$object->lines[$i]->label = preg_replace($orderRefPattern, '', $object->lines[$i]->label);
-							}
+							// Sauvegarder tous les champs susceptibles de contenir ou de générer la référence commande
+							$tmpDescOrigin     = isset($object->lines[$i]->desc)        ? $object->lines[$i]->desc        : '';
+							$tmpLabelOrigin    = isset($object->lines[$i]->label)       ? $object->lines[$i]->label       : '';
+							$tmpOrigin         = isset($object->lines[$i]->origin)      ? $object->lines[$i]->origin      : '';
+							$tmpOriginId       = isset($object->lines[$i]->origin_id)   ? $object->lines[$i]->origin_id   : 0;
+
+							// Filtrer le pattern Commande dans desc et label
+							$object->lines[$i]->desc  = preg_replace($orderRefPattern, '', $tmpDescOrigin);
+							$object->lines[$i]->label = preg_replace($orderRefPattern, '', $tmpLabelOrigin);
+
+							// Neutraliser origin pour bloquer la génération dynamique par pdf_getlinedesc
+							$object->lines[$i]->origin    = '';
+							$object->lines[$i]->origin_id = 0;
 
 							$pdf->startTransaction();
 
-							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $localHidedesc);
+							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 							$pageposafter = $pdf->getPage();
 
-							// Restore original fields after display
-							if ($tmpDescOrigin !== '') {
-								$object->lines[$i]->desc = $tmpDescOrigin;
-							}
-							if ($tmpLabelOrigin !== '') {
-								$object->lines[$i]->label = $tmpLabelOrigin;
-							}
+							// Restaurer les champs originaux après l'affichage
+							$object->lines[$i]->desc      = $tmpDescOrigin;
+							$object->lines[$i]->label     = $tmpLabelOrigin;
+							$object->lines[$i]->origin    = $tmpOrigin;
+							$object->lines[$i]->origin_id = $tmpOriginId;
 
 							if ($pageposafter > $pageposbefore) {	// There is a pagebreak
 								$pdf->rollbackTransaction(true);
 								$pageposafter = $pageposbefore;
 								$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
 
-								// Re-apply description filter before second attempt
-								if ($tmpDescOrigin !== '') {
-									$filtered = preg_replace($orderRefPattern, '', $tmpDescOrigin);
-									if (trim($filtered) === '') {
-										$object->lines[$i]->desc = '';
-									} else {
-										$object->lines[$i]->desc = $filtered;
-									}
-								}
-								if ($tmpLabelOrigin !== '') {
-									$object->lines[$i]->label = preg_replace($orderRefPattern, '', $tmpLabelOrigin);
-								}
+								// Re-appliquer le filtre avant le second rendu
+								$object->lines[$i]->desc      = preg_replace($orderRefPattern, '', $tmpDescOrigin);
+								$object->lines[$i]->label     = preg_replace($orderRefPattern, '', $tmpLabelOrigin);
+								$object->lines[$i]->origin    = '';
+								$object->lines[$i]->origin_id = 0;
 
-								$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $localHidedesc);
+								$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 
 								$pageposafter = $pdf->getPage();
 								$posyafter = $pdf->GetY();
@@ -899,13 +884,11 @@ class pdf_sponge2 extends ModelePDFFactures
 							}
 							$posYAfterDescription = $pdf->GetY();
 
-							// Final restore of original fields
-							if ($tmpDescOrigin !== '') {
-								$object->lines[$i]->desc = $tmpDescOrigin;
-							}
-							if ($tmpLabelOrigin !== '') {
-								$object->lines[$i]->label = $tmpLabelOrigin;
-							}
+							// Restauration finale
+							$object->lines[$i]->desc      = $tmpDescOrigin;
+							$object->lines[$i]->label     = $tmpLabelOrigin;
+							$object->lines[$i]->origin    = $tmpOrigin;
+							$object->lines[$i]->origin_id = $tmpOriginId;
 						}
 					}
 
