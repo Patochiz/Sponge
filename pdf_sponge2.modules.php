@@ -708,10 +708,6 @@ class pdf_sponge2 extends ModelePDFFactures
 
 				$nexY = $this->tab_top + $this->tabTitleHeight;
 
-				// Check if invoice has multiple linked orders (commandes)
-				$linkedObjectsForOrderCheck = $this->getLinkedObjectsForPDF($object, $outputlangs);
-				$hasMultipleOrders = !empty($linkedObjectsForOrderCheck['commande']['refs']) && count($linkedObjectsForOrderCheck['commande']['refs']) > 1;
-
 				// Loop on each lines
 				$pageposbeforeprintlines = $pdf->getPage();
 				$pagenb = $pageposbeforeprintlines;
@@ -824,9 +820,9 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->SetTextColor(0, 0, 0);
 							$pdf->SetFont('', '', $default_font_size - 1);
 						} else {
-							// Lignes normales : supprimer les références commande uniquement si la facture a plusieurs commandes
+							// Lignes normales : supprimer la référence commande (présente uniquement en cas de multi-commandes)
 							$tmpDescOrigin = '';
-							if ($hasMultipleOrders && !empty($object->lines[$i]->desc)) {
+							if (!empty($object->lines[$i]->desc)) {
 								$tmpDescOrigin = $object->lines[$i]->desc;
 								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
 							}
