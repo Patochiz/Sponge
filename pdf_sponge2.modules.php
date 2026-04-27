@@ -824,9 +824,19 @@ class pdf_sponge2 extends ModelePDFFactures
 							$tmpDescOrigin = '';
 							$tmpLabelOrigin = '';
 							$orderRefPattern = '/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/';
+							$localHidedesc = $hidedesc;
+
 							if (!empty($object->lines[$i]->desc)) {
 								$tmpDescOrigin = $object->lines[$i]->desc;
-								$object->lines[$i]->desc = preg_replace($orderRefPattern, '', $object->lines[$i]->desc);
+								$filtered = preg_replace($orderRefPattern, '', $object->lines[$i]->desc);
+								if (trim($filtered) === '') {
+									// desc ne contenait que la référence commande : on vide desc et on masque
+									// la description pour empêcher Dolibarr de la régénérer depuis origin
+									$object->lines[$i]->desc = '';
+									$localHidedesc = 1;
+								} else {
+									$object->lines[$i]->desc = $filtered;
+								}
 							}
 							if (!empty($object->lines[$i]->label)) {
 								$tmpLabelOrigin = $object->lines[$i]->label;
@@ -835,7 +845,7 @@ class pdf_sponge2 extends ModelePDFFactures
 
 							$pdf->startTransaction();
 
-							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
+							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $localHidedesc);
 							$pageposafter = $pdf->getPage();
 
 							// Restore original fields after display
@@ -853,13 +863,18 @@ class pdf_sponge2 extends ModelePDFFactures
 
 								// Re-apply description filter before second attempt
 								if ($tmpDescOrigin !== '') {
-									$object->lines[$i]->desc = preg_replace($orderRefPattern, '', $tmpDescOrigin);
+									$filtered = preg_replace($orderRefPattern, '', $tmpDescOrigin);
+									if (trim($filtered) === '') {
+										$object->lines[$i]->desc = '';
+									} else {
+										$object->lines[$i]->desc = $filtered;
+									}
 								}
 								if ($tmpLabelOrigin !== '') {
 									$object->lines[$i]->label = preg_replace($orderRefPattern, '', $tmpLabelOrigin);
 								}
 
-								$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
+								$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $localHidedesc);
 
 								$pageposafter = $pdf->getPage();
 								$posyafter = $pdf->GetY();
