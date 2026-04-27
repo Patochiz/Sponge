@@ -820,20 +820,22 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->SetTextColor(0, 0, 0);
 							$pdf->SetFont('', '', $default_font_size - 1);
 						} else {
-							// Lignes normales : supprimer la référence commande (présente uniquement en cas de multi-commandes)
+							// Lignes normales : supprimer la référence commande stockée en base à la création de la facture
+							// Format : "Commande {ref} - {date}" ex: "Commande 2604_032 - 21/04/2026"
 							$orderRefPattern = '/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/';
 
-							// Sauvegarder tous les champs susceptibles de contenir ou de générer la référence commande
-							$tmpDescOrigin     = isset($object->lines[$i]->desc)        ? $object->lines[$i]->desc        : '';
-							$tmpLabelOrigin    = isset($object->lines[$i]->label)       ? $object->lines[$i]->label       : '';
-							$tmpOrigin         = isset($object->lines[$i]->origin)      ? $object->lines[$i]->origin      : '';
-							$tmpOriginId       = isset($object->lines[$i]->origin_id)   ? $object->lines[$i]->origin_id   : 0;
+							// Sauvegarder tous les champs susceptibles de contenir la référence commande
+							$tmpFields = array();
+							foreach (array('desc', 'description', 'label', 'product_desc', 'product_label', 'origin', 'origin_id') as $field) {
+								$tmpFields[$field] = isset($object->lines[$i]->$field) ? $object->lines[$i]->$field : null;
+							}
 
-							// Filtrer le pattern Commande dans desc et label
-							$object->lines[$i]->desc  = preg_replace($orderRefPattern, '', $tmpDescOrigin);
-							$object->lines[$i]->label = preg_replace($orderRefPattern, '', $tmpLabelOrigin);
-
-							// Neutraliser origin pour bloquer la génération dynamique par pdf_getlinedesc
+							// Filtrer le pattern dans tous les champs texte et neutraliser origin
+							foreach (array('desc', 'description', 'label', 'product_desc', 'product_label') as $field) {
+								if (!empty($object->lines[$i]->$field)) {
+									$object->lines[$i]->$field = preg_replace($orderRefPattern, '', $object->lines[$i]->$field);
+								}
+							}
 							$object->lines[$i]->origin    = '';
 							$object->lines[$i]->origin_id = 0;
 
@@ -842,11 +844,10 @@ class pdf_sponge2 extends ModelePDFFactures
 							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 							$pageposafter = $pdf->getPage();
 
-							// Restaurer les champs originaux après l'affichage
-							$object->lines[$i]->desc      = $tmpDescOrigin;
-							$object->lines[$i]->label     = $tmpLabelOrigin;
-							$object->lines[$i]->origin    = $tmpOrigin;
-							$object->lines[$i]->origin_id = $tmpOriginId;
+							// Restaurer tous les champs originaux après l'affichage
+							foreach ($tmpFields as $field => $value) {
+								$object->lines[$i]->$field = $value;
+							}
 
 							if ($pageposafter > $pageposbefore) {	// There is a pagebreak
 								$pdf->rollbackTransaction(true);
@@ -854,8 +855,11 @@ class pdf_sponge2 extends ModelePDFFactures
 								$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
 
 								// Re-appliquer le filtre avant le second rendu
-								$object->lines[$i]->desc      = preg_replace($orderRefPattern, '', $tmpDescOrigin);
-								$object->lines[$i]->label     = preg_replace($orderRefPattern, '', $tmpLabelOrigin);
+								foreach (array('desc', 'description', 'label', 'product_desc', 'product_label') as $field) {
+									if (!empty($object->lines[$i]->$field)) {
+										$object->lines[$i]->$field = preg_replace($orderRefPattern, '', $object->lines[$i]->$field);
+									}
+								}
 								$object->lines[$i]->origin    = '';
 								$object->lines[$i]->origin_id = 0;
 
@@ -884,11 +888,10 @@ class pdf_sponge2 extends ModelePDFFactures
 							}
 							$posYAfterDescription = $pdf->GetY();
 
-							// Restauration finale
-							$object->lines[$i]->desc      = $tmpDescOrigin;
-							$object->lines[$i]->label     = $tmpLabelOrigin;
-							$object->lines[$i]->origin    = $tmpOrigin;
-							$object->lines[$i]->origin_id = $tmpOriginId;
+							// Restauration finale de tous les champs
+							foreach ($tmpFields as $field => $value) {
+								$object->lines[$i]->$field = $value;
+							}
 						}
 					}
 
