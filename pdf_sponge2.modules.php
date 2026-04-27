@@ -709,10 +709,8 @@ class pdf_sponge2 extends ModelePDFFactures
 				$nexY = $this->tab_top + $this->tabTitleHeight;
 
 				// Check if invoice has multiple linked orders (commandes)
-				if (empty($object->linkedObjects)) {
-					$object->fetchObjectLinked();
-				}
-				$hasMultipleOrders = !empty($object->linkedObjects['commande']) && count($object->linkedObjects['commande']) > 1;
+				$linkedObjectsForOrderCheck = $this->getLinkedObjectsForPDF($object, $outputlangs);
+				$hasMultipleOrders = !empty($linkedObjectsForOrderCheck['commande']['refs']) && count($linkedObjectsForOrderCheck['commande']['refs']) > 1;
 
 				// Loop on each lines
 				$pageposbeforeprintlines = $pdf->getPage();
