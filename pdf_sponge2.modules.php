@@ -820,22 +820,33 @@ class pdf_sponge2 extends ModelePDFFactures
 							$pdf->SetTextColor(0, 0, 0);
 							$pdf->SetFont('', '', $default_font_size - 1);
 						} else {
-							// Lignes normales : modifier l'affichage des références commande
-							$tmpDescOrigin = '';
-							if (!empty($object->lines[$i]->desc)) {
-								$tmpDescOrigin = $object->lines[$i]->desc;
-								// For other lines, remove the command reference completely
-								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
+							// Lignes normales : supprimer la référence commande stockée en base à la création de la facture
+							// Format : "Commande {ref} - {date}" ex: "Commande 2604_032 - 21/04/2026"
+							$orderRefPattern = '/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/';
+
+							// Sauvegarder tous les champs susceptibles de contenir la référence commande
+							$tmpFields = array();
+							foreach (array('desc', 'description', 'label', 'product_desc', 'product_label', 'origin', 'origin_id') as $field) {
+								$tmpFields[$field] = isset($object->lines[$i]->$field) ? $object->lines[$i]->$field : null;
 							}
+
+							// Filtrer le pattern dans tous les champs texte et neutraliser origin
+							foreach (array('desc', 'description', 'label', 'product_desc', 'product_label') as $field) {
+								if (!empty($object->lines[$i]->$field)) {
+									$object->lines[$i]->$field = preg_replace($orderRefPattern, '', $object->lines[$i]->$field);
+								}
+							}
+							$object->lines[$i]->origin    = '';
+							$object->lines[$i]->origin_id = 0;
 
 							$pdf->startTransaction();
 
 							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 							$pageposafter = $pdf->getPage();
 
-							// Restore original description after display
-							if ($tmpDescOrigin !== '') {
-								$object->lines[$i]->desc = $tmpDescOrigin;
+							// Restaurer tous les champs originaux après l'affichage
+							foreach ($tmpFields as $field => $value) {
+								$object->lines[$i]->$field = $value;
 							}
 
 							if ($pageposafter > $pageposbefore) {	// There is a pagebreak
@@ -843,10 +854,14 @@ class pdf_sponge2 extends ModelePDFFactures
 								$pageposafter = $pageposbefore;
 								$pdf->setPageOrientation('', 1, $this->heightforfooter); // The only function to edit the bottom margin of current page to set it.
 
-								// Re-apply description filter before second attempt
-								if ($tmpDescOrigin !== '') {
-									$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
+								// Re-appliquer le filtre avant le second rendu
+								foreach (array('desc', 'description', 'label', 'product_desc', 'product_label') as $field) {
+									if (!empty($object->lines[$i]->$field)) {
+										$object->lines[$i]->$field = preg_replace($orderRefPattern, '', $object->lines[$i]->$field);
+									}
 								}
+								$object->lines[$i]->origin    = '';
+								$object->lines[$i]->origin_id = 0;
 
 								$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 
@@ -873,9 +888,9 @@ class pdf_sponge2 extends ModelePDFFactures
 							}
 							$posYAfterDescription = $pdf->GetY();
 
-							// Final restore of original description
-							if ($tmpDescOrigin !== '') {
-								$object->lines[$i]->desc = $tmpDescOrigin;
+							// Restauration finale de tous les champs
+							foreach ($tmpFields as $field => $value) {
+								$object->lines[$i]->$field = $value;
 							}
 						}
 					}
