@@ -822,9 +822,15 @@ class pdf_sponge2 extends ModelePDFFactures
 						} else {
 							// Lignes normales : supprimer la référence commande (présente uniquement en cas de multi-commandes)
 							$tmpDescOrigin = '';
+							$tmpLabelOrigin = '';
+							$orderRefPattern = '/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/';
 							if (!empty($object->lines[$i]->desc)) {
 								$tmpDescOrigin = $object->lines[$i]->desc;
-								$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $object->lines[$i]->desc);
+								$object->lines[$i]->desc = preg_replace($orderRefPattern, '', $object->lines[$i]->desc);
+							}
+							if (!empty($object->lines[$i]->label)) {
+								$tmpLabelOrigin = $object->lines[$i]->label;
+								$object->lines[$i]->label = preg_replace($orderRefPattern, '', $object->lines[$i]->label);
 							}
 
 							$pdf->startTransaction();
@@ -832,9 +838,12 @@ class pdf_sponge2 extends ModelePDFFactures
 							$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
 							$pageposafter = $pdf->getPage();
 
-							// Restore original description after display
+							// Restore original fields after display
 							if ($tmpDescOrigin !== '') {
 								$object->lines[$i]->desc = $tmpDescOrigin;
+							}
+							if ($tmpLabelOrigin !== '') {
+								$object->lines[$i]->label = $tmpLabelOrigin;
 							}
 
 							if ($pageposafter > $pageposbefore) {	// There is a pagebreak
@@ -844,7 +853,10 @@ class pdf_sponge2 extends ModelePDFFactures
 
 								// Re-apply description filter before second attempt
 								if ($tmpDescOrigin !== '') {
-									$object->lines[$i]->desc = preg_replace('/\n?Commande\s+[^\s]+\s+-\s+[^\n]+/', '', $tmpDescOrigin);
+									$object->lines[$i]->desc = preg_replace($orderRefPattern, '', $tmpDescOrigin);
+								}
+								if ($tmpLabelOrigin !== '') {
+									$object->lines[$i]->label = preg_replace($orderRefPattern, '', $tmpLabelOrigin);
 								}
 
 								$this->printColDescContent($pdf, $curY, 'desc', $object, $i, $outputlangs, $hideref, $hidedesc);
@@ -872,9 +884,12 @@ class pdf_sponge2 extends ModelePDFFactures
 							}
 							$posYAfterDescription = $pdf->GetY();
 
-							// Final restore of original description
+							// Final restore of original fields
 							if ($tmpDescOrigin !== '') {
 								$object->lines[$i]->desc = $tmpDescOrigin;
+							}
+							if ($tmpLabelOrigin !== '') {
+								$object->lines[$i]->label = $tmpLabelOrigin;
 							}
 						}
 					}
