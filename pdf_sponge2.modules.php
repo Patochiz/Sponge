@@ -442,10 +442,6 @@ class pdf_sponge2 extends ModelePDFFactures
 				}
 				$this->categoryOfOperation = $categoryOfOperation;
 
-				// Augmenter la hauteur de la zone de totaux si escompte service détecté (2 lignes supplémentaires)
-				if ($this->escompte_service_line >= 0 && $this->escompte_service_percent > 0) {
-					$this->heightforinfotot += 10;
-				}
 
 				// Situation invoice handling
 				if ($object->situation_cycle_ref) {
@@ -711,6 +707,13 @@ class pdf_sponge2 extends ModelePDFFactures
 				// Loop on each lines
 				$pageposbeforeprintlines = $pdf->getPage();
 				$pagenb = $pageposbeforeprintlines;
+
+				// Compute the last line index that will actually be rendered (skip escompte service line 426)
+				$lastRenderedLine = $nblines - 1;
+				while ($lastRenderedLine > 0 && !empty($object->lines[$lastRenderedLine]->fk_product) && $object->lines[$lastRenderedLine]->fk_product == 426) {
+					$lastRenderedLine--;
+				}
+
 				for ($i = 0; $i < $nblines; $i++) {
 					// Ignorer la ligne escompte service (ID 426) - elle sera affichée dans la zone de totaux
 					if (!empty($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 426) {
@@ -868,7 +871,7 @@ class pdf_sponge2 extends ModelePDFFactures
 								$pageposafter = $pdf->getPage();
 								$posyafter = $pdf->GetY();
 								if ($posyafter > ($this->page_hauteur - $page_bottom_margin)) {	// There is no space left for total+free text
-									if ($i == ($nblines - 1)) {	// No more lines, and no space left to show total, so we create a new page
+									if ($i == $lastRenderedLine) {	// No more lines, and no space left to show total, so we create a new page
 										$pdf->AddPage('', '', true);
 										if (!empty($tplidx)) {
 											$pdf->useTemplate($tplidx);
@@ -1076,7 +1079,7 @@ class pdf_sponge2 extends ModelePDFFactures
 					$nexY = max($nexY, $posYAfterImage);
 
 					// Add horizontal line between products
-					if ($i < ($nblines - 1)) {
+					if ($i < $lastRenderedLine) {
 						$pdf->setPage($pageposafter);
 						$pdf->SetDrawColor(192, 192, 192);
 						$pdf->line($this->marge_gauche, $nexY, $this->page_largeur - $this->marge_droite, $nexY);
