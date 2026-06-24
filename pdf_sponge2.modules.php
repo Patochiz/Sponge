@@ -2956,7 +2956,11 @@ class pdf_sponge2 extends ModelePDFFactures
 			'width' => 11, // in mm
 			'status' => false,
 			'title' => array(
-				'textkey' => 'Unit'
+				'textkey' => 'Unit',
+				'label' => ' ',
+			),
+			'content' => array(
+				'align' => 'L',
 			),
 			'border-left' => false, // add left line separator
 		);
