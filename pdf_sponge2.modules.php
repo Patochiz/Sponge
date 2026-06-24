@@ -2940,6 +2940,35 @@ class pdf_sponge2 extends ModelePDFFactures
 		}
 
 		$rank = $rank + 10;
+		$this->cols['qty'] = array(
+			'rank' => $rank,
+			'width' => 16, // in mm
+			'status' => true,
+			'title' => array(
+				'textkey' => 'Qty'
+			),
+			'border-left' => false, // add left line separator
+		);
+
+		$rank = $rank + 10;
+		$this->cols['unit'] = array(
+			'rank' => $rank,
+			'width' => 11, // in mm
+			'status' => false,
+			'title' => array(
+				'textkey' => 'Unit',
+				'label' => ' ',
+			),
+			'content' => array(
+				'align' => 'L',
+			),
+			'border-left' => false, // add left line separator
+		);
+		if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
+			$this->cols['unit']['status'] = true;
+		}
+
+		$rank = $rank + 10;
 		$this->cols['subprice'] = array(
 			'rank' => $rank,
 			'width' => 19, // in mm
@@ -2962,17 +2991,6 @@ class pdf_sponge2 extends ModelePDFFactures
 		}
 
 		$rank = $rank + 10;
-		$this->cols['qty'] = array(
-			'rank' => $rank,
-			'width' => 16, // in mm
-			'status' => true,
-			'title' => array(
-				'textkey' => 'Qty'
-			),
-			'border-left' => false, // add left line separator
-		);
-
-		$rank = $rank + 10;
 		$this->cols['progress'] = array(
 			'rank' => $rank,
 			'width' => 19, // in mm
@@ -2985,20 +3003,6 @@ class pdf_sponge2 extends ModelePDFFactures
 
 		if ($this->situationinvoice) {
 			$this->cols['progress']['status'] = true;
-		}
-
-		$rank = $rank + 10;
-		$this->cols['unit'] = array(
-			'rank' => $rank,
-			'width' => 11, // in mm
-			'status' => false,
-			'title' => array(
-				'textkey' => 'Unit'
-			),
-			'border-left' => false, // add left line separator
-		);
-		if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
-			$this->cols['unit']['status'] = true;
 		}
 
 		$rank = $rank + 10;
