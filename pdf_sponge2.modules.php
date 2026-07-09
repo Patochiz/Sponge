@@ -1437,7 +1437,7 @@ class pdf_sponge2 extends ModelePDFFactures
 				$posy = $pdf->GetY();
 
 				//#21654: add account number used for the debit (only for PRE mode)
-				if ($object->mode_reglement_code == 'PRE') {
+				if ($object->mode_reglement_code == 'PRE' || $object->mode_reglement_code == 'PRELCR') {
 					// Affichage du RIB du tiers
 					require_once DOL_DOCUMENT_ROOT.'/societe/class/companybankaccount.class.php';
 					$bac = new CompanyBankAccount($this->db);
