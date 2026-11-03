@@ -2582,6 +2582,46 @@ class pdf_sponge2 extends ModelePDFFactures
 
 			$carac_emetteur .= pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
 
+			// If BILLING contact defined on invoice, we use it
+			$usecontact = false;
+			$arrayidcontact = $object->getIdContact('external', 'BILLING');
+			if (count($arrayidcontact) > 0) {
+				$usecontact = true;
+				$result = $object->fetch_contact($arrayidcontact[0]);
+			}
+
+			// Recipient name
+			if ($usecontact && ($object->contact->socid != $object->thirdparty->id && (!isset($conf->global->MAIN_USE_COMPANY_NAME_OF_CONTACT) || getDolGlobalString('MAIN_USE_COMPANY_NAME_OF_CONTACT')))) {
+				$thirdparty = $object->contact;
+			} else {
+				$thirdparty = $object->thirdparty;
+			}
+
+			$carac_client_name = pdfBuildThirdpartyName($thirdparty, $outputlangs);
+
+			$mode = 'target';
+			$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, ($usecontact ? $object->contact : ''), $usecontact, $mode, $object);
+
+			// Add billing contact email if not already included
+			if ($usecontact && !empty($object->contact->email) && strpos($carac_client, $object->contact->email) === false) {
+				$carac_client .= "\n" . $object->contact->email;
+			}
+
+			// Hauteur des cadres adaptée au contenu du destinataire (ex : SIRET, TVA, email en plus)
+			$widthrecbox_client = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 100;
+			if ($this->page_largeur < 210) {
+				$widthrecbox_client = 84;
+			}
+			$pdf->SetFont('', 'B', $default_font_size);
+			$hauteur_contenu_client = $pdf->getStringHeight($widthrecbox_client - 2, $carac_client_name);
+			$pdf->SetFont('', '', $default_font_size - 1);
+			$hauteur_contenu_client += $pdf->getStringHeight($widthrecbox_client - 2, $carac_client);
+			// 3 mm de marge en haut (SetXY posy + 3) et 3 mm en bas
+			$hautcadre_base = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 38 : 40;
+			$hautcadre = max($hautcadre_base, (int) ceil($hauteur_contenu_client + 6));
+			// Le surplus décale le début du tableau
+			$shipp_shift += $hautcadre - $hautcadre_base;
+
 			// Show sender
 			$posy = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 40 : 42;
 			$posy += $top_shift;
@@ -2590,7 +2630,6 @@ class pdf_sponge2 extends ModelePDFFactures
 				$posx = $this->page_largeur - $this->marge_droite - 80;
 			}
 
-			$hautcadre = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 38 : 40;
 			$widthrecbox = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 82;
 
 			// Show sender frame
@@ -2617,31 +2656,6 @@ class pdf_sponge2 extends ModelePDFFactures
 			$pdf->SetXY($posx + 2, $posy);
 			$pdf->SetFont('', '', $default_font_size - 1);
 			$pdf->MultiCell($widthrecbox - 2, 4, $carac_emetteur, 0, $ltrdirection);
-
-			// If BILLING contact defined on invoice, we use it
-			$usecontact = false;
-			$arrayidcontact = $object->getIdContact('external', 'BILLING');
-			if (count($arrayidcontact) > 0) {
-				$usecontact = true;
-				$result = $object->fetch_contact($arrayidcontact[0]);
-			}
-
-			// Recipient name
-			if ($usecontact && ($object->contact->socid != $object->thirdparty->id && (!isset($conf->global->MAIN_USE_COMPANY_NAME_OF_CONTACT) || getDolGlobalString('MAIN_USE_COMPANY_NAME_OF_CONTACT')))) {
-				$thirdparty = $object->contact;
-			} else {
-				$thirdparty = $object->thirdparty;
-			}
-
-			$carac_client_name = pdfBuildThirdpartyName($thirdparty, $outputlangs);
-
-			$mode = 'target';
-			$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, ($usecontact ? $object->contact : ''), $usecontact, $mode, $object);
-
-			// Add billing contact email if not already included
-			if ($usecontact && !empty($object->contact->email) && strpos($carac_client, $object->contact->email) === false) {
-				$carac_client .= "\n" . $object->contact->email;
-			}
 
 			// Show recipient
 			$widthrecbox = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 100;
